@@ -148,7 +148,12 @@ export const transactions = pgTable(
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type UserStats = typeof userStats.$inferSelect;
+export type NewUserStats = typeof userStats.$inferInsert;
 export type Room = typeof rooms.$inferSelect;
 export type Round = typeof rounds.$inferSelect;
+export type NewRound = typeof rounds.$inferInsert;
 export type RoundPlayer = typeof roundPlayers.$inferSelect;
+export type NewRoundPlayer = typeof roundPlayers.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
+export type NewTransaction = typeof transactions.$inferInsert;

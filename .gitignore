@@ -11,3 +11,6 @@ next-env.d.ts
 !.env.example
 .vercel/
 *.tsbuildinfo
+
+# Claude Code agent 隔离 worktree(临时,勿提交)
+.claude/worktrees/

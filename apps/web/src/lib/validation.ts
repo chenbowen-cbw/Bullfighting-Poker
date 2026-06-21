@@ -35,3 +35,18 @@ export const robSchema = z.object({
 export const betSchema = z.object({
   multiplier: z.number().int().min(1).max(10),
 });
+
+/** 路径参数中的正整数 id */
+export const idParamSchema = z.coerce.number().int().positive();
+
+/** 战绩分页:limit 1..100(默认 20),offset ≥ 0(默认 0) */
+export const recordsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+/** 排行榜:metric=chips|netWin(默认 chips),limit 1..100(默认 20) */
+export const leaderboardQuerySchema = z.object({
+  metric: z.enum(['chips', 'netWin']).default('chips'),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});

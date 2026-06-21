@@ -1,0 +1,20 @@
+{
+  "name": "@bullfighting/e2e",
+  "version": "0.1.0",
+  "description": "斗牛扑克端到端(E2E)测试。基于 Playwright,独立于默认 pnpm test / CI 运行。",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install:browsers": "playwright install --with-deps chromium",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"E2E 不进入默认 pnpm test;请用 pnpm --filter @bullfighting/e2e test:e2e\" && exit 0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

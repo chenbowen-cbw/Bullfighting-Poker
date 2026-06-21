@@ -11,7 +11,7 @@ import {
   type PublicGameState,
   type SeatInput,
 } from '@bullfighting/game';
-import { getDb } from './db';
+import type { RoundSettlementContext } from '@bullfighting/stats';
 import type { GamePublisher, GameScheduler, GameSettlementSink, GameStateStore } from './gamePorts';
 import { RedisGameStateStore } from './gameStateStore';
 import { AblyGamePublisher } from './gamePublisher';
@@ -66,12 +66,34 @@ export class GameService {
       if (effect.type === 'scheduleTimeout') {
         await this.scheduler.schedule(next.roomId, effect.deadline);
       } else if (effect.type === 'settle') {
-        await this.settlement.apply(next.roomId, next.roundNo, effect.deltas);
+        // 从结算后的对局状态构造落库上下文,交由 sink 在单事务内持久化
+        await this.settlement.apply(buildRoundContext(next));
       }
     }
     await this.publisher.broadcast(next);
     return projectState(next, viewerSeatId);
   }
+}
+
+/** 由结算后的对局状态构造结算落库上下文 */
+function buildRoundContext(state: GameState): RoundSettlementContext {
+  return {
+    roomId: state.roomId,
+    roundNo: state.roundNo,
+    bankerSeatId: state.bankerSeatId,
+    baseScore: state.baseScore,
+    players: state.players.map((p) => ({
+      userId: p.seatId,
+      seatNo: p.seatNo,
+      cards: p.cards,
+      niuType: p.hand?.type ?? null,
+      niuValue: p.hand?.niuValue ?? null,
+      isBanker: p.isBanker,
+      betMultiplier: p.betMultiplier ?? 1,
+      robMultiplier: p.robMultiplier ?? 1,
+      resultChips: p.resultChips ?? 0,
+    })),
+  };
 }
 
 function requireEnv(name: string): string {
@@ -82,7 +104,7 @@ function requireEnv(name: string): string {
 
 let cached: GameService | undefined;
 
-/** 惰性装配对局服务(Redis 状态 + Ably 广播 + QStash 定时 + Drizzle 结算) */
+/** 惰性装配对局服务(Redis 状态 + Ably 广播 + QStash 定时 + 事务化结算落库) */
 export function getGameService(): GameService {
   if (!cached) {
     const callbackUrl = `${requireEnv('APP_URL')}/api/internal/qstash/advance`;
@@ -90,7 +112,7 @@ export function getGameService(): GameService {
       new RedisGameStateStore(Redis.fromEnv()),
       new AblyGamePublisher(new Rest(requireEnv('ABLY_API_KEY'))),
       new QStashGameScheduler(new Client({ token: requireEnv('QSTASH_TOKEN') }), callbackUrl),
-      new DrizzleGameSettlement(getDb()),
+      new DrizzleGameSettlement(requireEnv('DATABASE_URL')),
     );
   }
   return cached;
