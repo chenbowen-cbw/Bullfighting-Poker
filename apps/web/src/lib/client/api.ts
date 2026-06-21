@@ -7,6 +7,8 @@
  */
 import type {
   AuthResult,
+  FriendRequests,
+  PublicFriend,
   PublicGameState,
   PublicUser,
   QuickMatchResult,
@@ -167,6 +169,39 @@ export const roomApi = {
       method: 'POST',
       body: { baseScore },
     });
+  },
+};
+
+// ───────────────────────── 好友 ─────────────────────────
+
+export const friendsApi = {
+  /** 我的好友列表 */
+  listFriends(): Promise<{ friends: PublicFriend[] }> {
+    return request<{ friends: PublicFriend[] }>('/api/friends');
+  },
+  /** 待处理请求(收/发) */
+  listRequests(): Promise<FriendRequests> {
+    return request<FriendRequests>('/api/friends/requests');
+  },
+  /** 按用户名发起好友请求 */
+  sendRequest(toUsername: string): Promise<{ request: { id: string; status: string } }> {
+    return request('/api/friends/requests', { method: 'POST', body: { toUsername } });
+  },
+  /** 接受请求 */
+  accept(requestId: string): Promise<{ friendship: { id: string; status: string } }> {
+    return request(`/api/friends/requests/${requestId}/accept`, { method: 'POST' });
+  },
+  /** 拒绝请求 */
+  reject(requestId: string): Promise<{ ok: true }> {
+    return request(`/api/friends/requests/${requestId}/reject`, { method: 'POST' });
+  },
+  /** 删除好友 */
+  remove(friendId: string): Promise<{ ok: true }> {
+    return request(`/api/friends/${friendId}`, { method: 'DELETE' });
+  },
+  /** 邀请好友进入指定房间 */
+  invite(friendId: string, roomId: string): Promise<{ ok: true }> {
+    return request(`/api/friends/${friendId}/invite`, { method: 'POST', body: { roomId } });
   },
 };
 

@@ -14,6 +14,7 @@ import { BullMascot } from '@/components/ui/BullMascot';
 import { TopBar } from '@/components/lobby/TopBar';
 import { RoomCard } from '@/components/lobby/RoomCard';
 import { CreateRoomForm } from '@/components/lobby/CreateRoomForm';
+import { FriendsLauncher } from '@/components/friends/FriendsLauncher';
 
 /** 大厅:房间列表、创建房间、快速匹配、个人信息。 */
 export default function LobbyPage() {
@@ -105,6 +106,7 @@ export default function LobbyPage() {
           <CartoonButton variant="grass" onClick={() => setShowCreate(true)}>
             ➕ 创建房间
           </CartoonButton>
+          <FriendsLauncher />
         </div>
       </section>
 

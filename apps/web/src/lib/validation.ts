@@ -36,6 +36,16 @@ export const betSchema = z.object({
   multiplier: z.number().int().min(1).max(10),
 });
 
+/** 发起好友请求:按用户名 */
+export const sendFriendRequestSchema = z.object({
+  toUsername: z.string().min(1).max(32),
+});
+
+/** 邀请好友进入指定房间 */
+export const inviteFriendSchema = z.object({
+  roomId: z.string().min(1),
+});
+
 /** 路径参数中的正整数 id */
 export const idParamSchema = z.coerce.number().int().positive();
 

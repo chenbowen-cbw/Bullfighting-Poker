@@ -5,6 +5,7 @@ const nextConfig = {
     '@bullfighting/core',
     '@bullfighting/auth',
     '@bullfighting/db',
+    '@bullfighting/friends',
     '@bullfighting/rooms',
     '@bullfighting/game',
   ],

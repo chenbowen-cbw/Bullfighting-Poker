@@ -133,6 +133,29 @@ export const roundPlayers = pgTable(
   (t) => [index('round_players_round_idx').on(t.roundId)],
 );
 
+/** 好友关系(请求 / 已成为好友) */
+export const friendships = pgTable(
+  'friendships',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    requesterId: bigint('requester_id', { mode: 'number' })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    addresseeId: bigint('addressee_id', { mode: 'number' })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: varchar('status', { length: 16 }).notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // 同一对 (requester, addressee) 仅一条:并发去重的兜底锚点
+    uniqueIndex('friendships_pair_uniq').on(t.requesterId, t.addresseeId),
+    index('friendships_addressee_idx').on(t.addresseeId),
+    index('friendships_requester_idx').on(t.requesterId),
+  ],
+);
+
 /** 筹码账本(审计 / 对账) */
 export const transactions = pgTable(
   'transactions',
@@ -161,3 +184,5 @@ export type RoundPlayer = typeof roundPlayers.$inferSelect;
 export type NewRoundPlayer = typeof roundPlayers.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
+export type Friendship = typeof friendships.$inferSelect;
+export type NewFriendship = typeof friendships.$inferInsert;

@@ -38,6 +38,9 @@ importers:
       '@bullfighting/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@bullfighting/friends':
+        specifier: workspace:*
+        version: link:../../packages/friends
       '@bullfighting/game':
         specifier: workspace:*
         version: link:../../packages/game
@@ -167,6 +170,15 @@ importers:
       drizzle-kit:
         specifier: ^0.30.1
         version: 0.30.6
+
+  packages/friends:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.0
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.0)
 
   packages/game:
     dependencies:
