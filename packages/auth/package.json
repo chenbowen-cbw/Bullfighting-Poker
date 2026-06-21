@@ -1,0 +1,31 @@
+{
+  "name": "@bullfighting/auth",
+  "version": "0.1.0",
+  "description": "认证与用户领域逻辑:密码哈希(scrypt)、JWT(jose)、注册/登录服务。框架无关,可独立单测。",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "vitest": "^2.1.8"
+  }
+}

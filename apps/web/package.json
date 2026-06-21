@@ -1,0 +1,26 @@
+{
+  "name": "@bullfighting/web",
+  "version": "0.1.0",
+  "description": "斗牛扑克 Web 应用(Next.js,前端 + Serverless API)。",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@bullfighting/auth": "workspace:*",
+    "@bullfighting/core": "workspace:*",
+    "@bullfighting/db": "workspace:*",
+    "drizzle-orm": "^0.38.3",
+    "next": "^15.1.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.4",
+    "@types/react-dom": "^19.0.2"
+  }
+}
