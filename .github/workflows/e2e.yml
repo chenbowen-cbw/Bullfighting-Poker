@@ -1,0 +1,55 @@
+name: E2E (manual)
+
+# 手动触发的端到端测试工作流。
+# 故意与默认 CI(ci.yml)分离:E2E 需要一个可访问的已部署站点(如 Vercel Preview),
+# 不应作为 PR 合并的阻塞门禁。
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: '被测站点根地址(如 https://<preview-url>)'
+        required: true
+        type: string
+      run_backend:
+        description: '是否跑依赖后端的用例(需站点具备 Neon/Upstash 等)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @bullfighting/e2e install:browsers
+
+      - name: Run E2E (smoke + optional backend)
+        env:
+          E2E_BASE_URL: ${{ inputs.base_url }}
+          E2E_BACKEND: ${{ inputs.run_backend && '1' || '' }}
+          CI: 'true'
+        run: pnpm --filter @bullfighting/e2e test:e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7

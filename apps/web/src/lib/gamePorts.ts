@@ -1,4 +1,5 @@
-import type { GameState, SettlementDelta } from '@bullfighting/game';
+import type { GameState } from '@bullfighting/game';
+import type { RoundSettlementContext } from '@bullfighting/stats';
 
 /** 对局状态存储(Redis) */
 export interface GameStateStore {
@@ -16,7 +17,10 @@ export interface GameScheduler {
   schedule(roomId: string, deadline: number): Promise<void>;
 }
 
-/** 结算落账(数据库) */
+/**
+ * 结算落库端口。实现应在**单个数据库事务**内原子完成:
+ * 各 users.chips 增减、transactions 账本、rounds、round_players、user_stats 累加。
+ */
 export interface GameSettlementSink {
-  apply(roomId: string, roundNo: number, deltas: SettlementDelta[]): Promise<void>;
+  apply(ctx: RoundSettlementContext): Promise<{ roundId: string }>;
 }

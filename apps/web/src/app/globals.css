@@ -1,0 +1,86 @@
+/* 引入圆体卡通字体(Baloo 2) */
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    @apply font-cartoon text-ink;
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    /* 奶油底 + 柔和的圆点纹理,营造游乐场感 */
+    background-color: theme('colors.cream');
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(255, 200, 61, 0.25) 0, transparent 35%),
+      radial-gradient(circle at 80% 0%, rgba(77, 171, 247, 0.18) 0, transparent 35%),
+      radial-gradient(circle at 50% 100%, rgba(46, 204, 113, 0.18) 0, transparent 40%);
+    background-attachment: fixed;
+  }
+
+  /* 默认按钮聚焦环用卡通描边 */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible {
+    outline: 3px dashed theme('colors.ink');
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* 卡通主面板:厚描边 + 厚投影 + 大圆角 */
+  .cartoon-card {
+    @apply rounded-cartoon border-4 border-ink bg-chalk shadow-cartoon;
+  }
+
+  /* 通用卡通按钮基类(配合颜色工具类) */
+  .btn-cartoon {
+    @apply inline-flex items-center justify-center gap-2 rounded-blob border-4 border-ink
+      px-6 py-3 text-lg font-extrabold text-ink shadow-cartoon-sm
+      transition-transform duration-150 ease-out select-none;
+  }
+  .btn-cartoon:hover:not(:disabled) {
+    @apply -translate-y-0.5;
+  }
+  /* 按下时"陷进去",投影变薄 */
+  .btn-cartoon:active:not(:disabled) {
+    @apply translate-y-1 shadow-none;
+  }
+  .btn-cartoon:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  /* 卡通输入框 */
+  .input-cartoon {
+    @apply w-full rounded-blob border-4 border-ink bg-chalk px-5 py-3 text-lg font-semibold
+      text-ink placeholder:text-ink/40 focus:border-tangerine;
+  }
+
+  /* 徽章(牛型/状态) */
+  .badge-cartoon {
+    @apply inline-flex items-center gap-1 rounded-full border-[3px] border-ink px-3 py-1
+      text-sm font-extrabold shadow-cartoon-sm;
+  }
+}
+
+/* 隐藏数字输入的步进箭头,保持干净外观 */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
