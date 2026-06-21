@@ -12,6 +12,8 @@
     "@bullfighting/auth": "workspace:*",
     "@bullfighting/core": "workspace:*",
     "@bullfighting/db": "workspace:*",
+    "@bullfighting/rooms": "workspace:*",
+    "@upstash/redis": "^1.34.3",
     "drizzle-orm": "^0.38.3",
     "next": "^15.1.4",
     "react": "^19.0.0",

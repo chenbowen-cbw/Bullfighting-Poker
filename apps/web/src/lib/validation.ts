@@ -10,3 +10,20 @@ export const loginSchema = z.object({
   username: z.string().min(1).max(32),
   password: z.string().min(1).max(128),
 });
+
+export const createRoomSchema = z.object({
+  name: z.string().min(1).max(64),
+  baseScore: z.number().int().min(1),
+  maxPlayers: z.number().int().min(2).max(10),
+  mode: z.literal('rob_banker').default('rob_banker'),
+  minChips: z.number().int().min(0).default(0),
+  buyIn: z.number().int().min(0).default(0),
+});
+
+export const joinRoomSchema = z.object({
+  chipsIn: z.number().int().min(0).default(0),
+});
+
+export const quickMatchSchema = z.object({
+  baseScore: z.number().int().min(1),
+});

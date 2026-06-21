@@ -1,4 +1,4 @@
-import { AuthService } from '@bullfighting/auth';
+import { AuthService, AuthError, type PublicUser } from '@bullfighting/auth';
 import { getDb } from './db';
 import { DrizzleUserRepository } from './userRepository';
 
@@ -23,4 +23,11 @@ export function getBearerToken(req: Request): string | null {
   const header = req.headers.get('authorization');
   if (!header || !header.startsWith('Bearer ')) return null;
   return header.slice('Bearer '.length).trim() || null;
+}
+
+/** 受保护接口的统一鉴权:无有效令牌则抛 AuthError(401) */
+export async function requireUser(req: Request): Promise<PublicUser> {
+  const token = getBearerToken(req);
+  if (!token) throw AuthError.unauthorized();
+  return getAuthService().authenticate(token);
 }
