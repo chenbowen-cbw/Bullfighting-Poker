@@ -1,0 +1,28 @@
+{
+  "name": "@bullfighting/rooms",
+  "version": "0.1.0",
+  "description": "大厅领域逻辑:房间生命周期、座位管理、快速匹配。框架无关,可独立单测。",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "vitest": "^2.1.8"
+  }
+}
