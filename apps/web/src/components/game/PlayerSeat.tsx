@@ -12,6 +12,8 @@ const AVATARS = ['🐂', '🐮', '🐷', '🐸', '🐵', '🦊', '🐰', '🐼',
 interface PlayerSeatProps {
   player: PublicPlayer;
   phase: GamePhase;
+  /** 展示名(自己=昵称,其他=座位标签,由父组件计算;对局公开态不含昵称) */
+  displayName: string;
   /** 是否为当前登录玩家(高亮) */
   isSelf: boolean;
   /** 是否为庄家 */
@@ -19,11 +21,11 @@ interface PlayerSeatProps {
 }
 
 /**
- * 环绕牌桌的座位:头像 + 昵称 + 筹码 + 牛型徽章 + 庄家皇冠,
+ * 环绕牌桌的座位:头像 + 展示名 + 牛型徽章 + 庄家皇冠,
  * 下注/抢庄倍数气泡,结算时盈亏数字弹跳。
  */
-export function PlayerSeat({ player, phase, isSelf, isBanker }: PlayerSeatProps) {
-  const avatar = AVATARS[player.seatId % AVATARS.length];
+export function PlayerSeat({ player, phase, displayName, isSelf, isBanker }: PlayerSeatProps) {
+  const avatar = AVATARS[player.seatNo % AVATARS.length];
   const revealed = phase === 'reveal' || phase === 'settled';
   const settled = phase === 'settled';
 
@@ -65,20 +67,14 @@ export function PlayerSeat({ player, phase, isSelf, isBanker }: PlayerSeatProps)
         <span aria-hidden>{avatar}</span>
       </div>
 
-      {/* 昵称 */}
+      {/* 展示名 */}
       <div className="max-w-full truncate text-sm font-extrabold text-ink">
-        {player.nickname}
+        {displayName}
         {isSelf && <span className="text-tangerine"> (我)</span>}
       </div>
 
-      {/* 筹码 */}
-      <div className="badge-cartoon bg-sunny px-2 py-0.5 text-xs text-ink">
-        <span aria-hidden>🪙</span>
-        {player.chips.toLocaleString()}
-      </div>
-
       {/* 牛型徽章(亮牌后) */}
-      {revealed && player.niuType && <NiuBadge type={player.niuType} className="text-xs" />}
+      {revealed && player.hand && <NiuBadge type={player.hand.type} className="text-xs" />}
 
       {/* 决策气泡 */}
       <AnimatePresence>
@@ -113,7 +109,7 @@ export function PlayerSeat({ player, phase, isSelf, isBanker }: PlayerSeatProps)
 
       {/* 结算盈亏数字 */}
       <AnimatePresence>
-        {settled && player.delta !== null && (
+        {settled && player.resultChips !== null && (
           <motion.div
             initial={{ y: 0, opacity: 0, scale: 0.6 }}
             animate={{ y: -28, opacity: 1, scale: 1.2 }}
@@ -121,10 +117,10 @@ export function PlayerSeat({ player, phase, isSelf, isBanker }: PlayerSeatProps)
             transition={{ type: 'spring', stiffness: 360, damping: 18 }}
             className={clsx(
               'pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 text-xl font-extrabold drop-shadow',
-              player.delta >= 0 ? 'text-grass' : 'text-bull',
+              player.resultChips >= 0 ? 'text-grass' : 'text-bull',
             )}
           >
-            {player.delta >= 0 ? `+${player.delta}` : player.delta}
+            {player.resultChips >= 0 ? `+${player.resultChips}` : player.resultChips}
           </motion.div>
         )}
       </AnimatePresence>

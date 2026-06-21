@@ -35,15 +35,6 @@ export default function RoomPage() {
   /** 对局后端是否在线(/sync 可用) */
   const [gameBackendOnline, setGameBackendOnline] = useState(false);
 
-  // 昵称表:优先用对局态里的昵称,其次用自己的
-  const nameOf = useCallback(
-    (uid: string): string | undefined => {
-      if (uid === user?.id) return user?.nickname;
-      return undefined;
-    },
-    [user],
-  );
-
   // 拉房间 + 尝试拉对局态
   const loadAll = useCallback(async () => {
     try {
@@ -57,7 +48,7 @@ export default function RoomPage() {
       } catch (err) {
         if (err instanceof ApiError && err.isBackendMissing) {
           setGameBackendOnline(false);
-          setGame(deriveWaitingState(data, nameOf));
+          setGame(deriveWaitingState(data));
         } else {
           throw err;
         }
@@ -67,7 +58,7 @@ export default function RoomPage() {
     } finally {
       setLoading(false);
     }
-  }, [roomId, setGame, nameOf, pushToast]);
+  }, [roomId, setGame, pushToast]);
 
   useEffect(() => {
     if (authed) void loadAll();
@@ -155,7 +146,7 @@ export default function RoomPage() {
   if (!authed) return null;
 
   const isOwner = room?.room.ownerId === user?.id;
-  const me = game?.players.find((p) => p.userId === user?.id);
+  const me = game?.players.find((p) => p.seatId === user?.id);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 p-3">
