@@ -18,14 +18,23 @@ interface PlayerSeatProps {
   isSelf: boolean;
   /** 是否为庄家 */
   isBanker: boolean;
+  /** 是否为机器人(人机练习中标注 🤖,便于区分人机) */
+  isBot?: boolean;
 }
 
 /**
  * 环绕牌桌的座位:头像 + 展示名 + 牛型徽章 + 庄家皇冠,
  * 下注/抢庄倍数气泡,结算时盈亏数字弹跳。
  */
-export function PlayerSeat({ player, phase, displayName, isSelf, isBanker }: PlayerSeatProps) {
-  const avatar = AVATARS[player.seatNo % AVATARS.length];
+export function PlayerSeat({
+  player,
+  phase,
+  displayName,
+  isSelf,
+  isBanker,
+  isBot = false,
+}: PlayerSeatProps) {
+  const avatar = isBot ? '🤖' : AVATARS[player.seatNo % AVATARS.length];
   const revealed = phase === 'reveal' || phase === 'settled';
   const settled = phase === 'settled';
 
@@ -69,6 +78,7 @@ export function PlayerSeat({ player, phase, displayName, isSelf, isBanker }: Pla
 
       {/* 展示名 */}
       <div className="max-w-full truncate text-sm font-extrabold text-ink">
+        {isBot && <span aria-label="机器人">🤖 </span>}
         {displayName}
         {isSelf && <span className="text-tangerine"> (我)</span>}
       </div>

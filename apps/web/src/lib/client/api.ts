@@ -241,3 +241,26 @@ export const gameApi = {
     return request<AblyTokenRequest>('/api/realtime/token');
   },
 };
+
+// ───────────────────────── 人机练习(PvE) ─────────────────────────
+
+/** 人机练习开局参数 */
+export interface StartPveInput {
+  difficulty: 'easy' | 'medium' | 'hard';
+  botCount: number;
+  baseScore: number;
+}
+
+export const pveApi = {
+  /** 开一局人机练习,返回 roomId 与初始公开状态 */
+  start(opts: StartPveInput): Promise<{ roomId: string; state: PublicGameState }> {
+    return request<{ roomId: string; state: PublicGameState }>('/api/pve/start', {
+      method: 'POST',
+      body: opts,
+    });
+  },
+  /** 同一练习房开下一局 */
+  nextRound(roomId: string): Promise<PublicGameState> {
+    return request<PublicGameState>(`/api/pve/${roomId}/next-round`, { method: 'POST', body: {} });
+  },
+};

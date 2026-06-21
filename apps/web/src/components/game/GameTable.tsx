@@ -9,13 +9,30 @@ interface GameTableProps {
   game: PublicGameState;
   /** 当前登录用户 id */
   selfUserId: string | null;
+  /**
+   * 座位展示名解析器(可选)。默认用「座位 N」;
+   * 人机练习页可据此把机器人显示为「机器人N」。
+   */
+  seatLabel?: (player: PublicGameState['players'][number]) => string;
+  /** 判断座位是否为机器人(可选;默认全否,即 PvP 行为不变) */
+  isBot?: (player: PublicGameState['players'][number]) => boolean;
+}
+
+/** 默认座位标签:对局公开态不含昵称,用座位号 */
+function defaultSeatLabel(player: PublicGameState['players'][number]): string {
+  return `座位 ${player.seatNo + 1}`;
 }
 
 /**
  * 椭圆卡通牌桌:座位沿椭圆环绕,中央是公牛 + 底分/庄家信息。
  * 把"我"固定排在最下方(顺时针重排),更符合手游直觉。
  */
-export function GameTable({ game, selfUserId }: GameTableProps) {
+export function GameTable({
+  game,
+  selfUserId,
+  seatLabel = defaultSeatLabel,
+  isBot,
+}: GameTableProps) {
   const players = [...game.players].sort((a, b) => a.seatNo - b.seatNo);
 
   // 让自己排到列表首位(置于底部中央),其余顺时针排开
@@ -46,7 +63,7 @@ export function GameTable({ game, selfUserId }: GameTableProps) {
             transition={{ type: 'spring', stiffness: 400, damping: 18 }}
             className="badge-cartoon bg-tangerine px-3 py-1 text-sm text-chalk"
           >
-            👑 庄家 {bankerLabel(game)}
+            👑 庄家 {bankerLabel(game, seatLabel)}
           </motion.div>
         )}
       </div>
@@ -70,9 +87,10 @@ export function GameTable({ game, selfUserId }: GameTableProps) {
             <PlayerSeat
               player={p}
               phase={game.phase}
-              displayName={`座位 ${p.seatNo + 1}`}
+              displayName={seatLabel(p)}
               isSelf={p.seatId === selfUserId}
               isBanker={game.bankerSeatId === p.seatId}
+              isBot={isBot?.(p) ?? false}
             />
           </div>
         );
@@ -81,8 +99,11 @@ export function GameTable({ game, selfUserId }: GameTableProps) {
   );
 }
 
-/** 取庄家座位标签(对局公开态无昵称,故用座位号) */
-function bankerLabel(game: PublicGameState): string {
+/** 取庄家座位标签(对局公开态无昵称,故用座位标签解析器) */
+function bankerLabel(
+  game: PublicGameState,
+  seatLabel: (player: PublicGameState['players'][number]) => string,
+): string {
   const banker = game.players.find((p) => p.seatId === game.bankerSeatId);
-  return banker ? `座位 ${banker.seatNo + 1}` : '';
+  return banker ? seatLabel(banker) : '';
 }

@@ -14,6 +14,7 @@ import { BullMascot } from '@/components/ui/BullMascot';
 import { TopBar } from '@/components/lobby/TopBar';
 import { RoomCard } from '@/components/lobby/RoomCard';
 import { CreateRoomForm } from '@/components/lobby/CreateRoomForm';
+import { PveSetupForm } from '@/components/lobby/PveSetupForm';
 import { FriendsLauncher } from '@/components/friends/FriendsLauncher';
 
 /** 大厅:房间列表、创建房间、快速匹配、个人信息。 */
@@ -26,6 +27,7 @@ export default function LobbyPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showPve, setShowPve] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [matching, setMatching] = useState(false);
 
@@ -106,6 +108,9 @@ export default function LobbyPage() {
           <CartoonButton variant="grass" onClick={() => setShowCreate(true)}>
             ➕ 创建房间
           </CartoonButton>
+          <CartoonButton variant="grape" onClick={() => setShowPve(true)}>
+            🤖 人机练习
+          </CartoonButton>
           <FriendsLauncher />
         </div>
       </section>
@@ -149,6 +154,16 @@ export default function LobbyPage() {
           onCreated={(created) => {
             setShowCreate(false);
             router.push(`/room/${created.room.id}`);
+          }}
+        />
+      </CartoonModal>
+
+      {/* 人机练习弹窗 */}
+      <CartoonModal open={showPve} title="人机练习" onClose={() => setShowPve(false)}>
+        <PveSetupForm
+          onStarted={(roomId) => {
+            setShowPve(false);
+            router.push(`/pve/${roomId}`);
           }}
         />
       </CartoonModal>

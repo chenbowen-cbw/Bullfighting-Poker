@@ -36,6 +36,16 @@ export const betSchema = z.object({
   multiplier: z.number().int().min(1).max(10),
 });
 
+/**
+ * 开一局人机练习。
+ * 总人数 = 1(人类)+ botCount,需落在 2..10;故 botCount 1..9。
+ */
+export const startPveSchema = z.object({
+  difficulty: z.enum(['easy', 'medium', 'hard']),
+  botCount: z.number().int().min(1).max(9),
+  baseScore: z.number().int().min(1),
+});
+
 /** 发起好友请求:按用户名 */
 export const sendFriendRequestSchema = z.object({
   toUsername: z.string().min(1).max(32),

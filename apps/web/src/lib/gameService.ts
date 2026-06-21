@@ -3,13 +3,40 @@ import {
   createInitialState,
   projectState,
   GameError,
+  BOT_SEAT_PREFIX,
+  type BotDifficulty,
   type GameAction,
   type GameState,
   type PublicGameState,
   type SeatInput,
 } from '@bullfighting/game';
 import type { RoundSettlementContext } from '@bullfighting/stats';
-import type { GamePublisher, GameScheduler, GameSettlementSink, GameStateStore } from './gamePorts';
+import { driveBots } from './botDriver';
+import type {
+  GamePublisher,
+  GameScheduler,
+  GameSettlementSink,
+  GameStateStore,
+  PveRecord,
+  PveRecordStore,
+} from './gamePorts';
+
+/** 人机练习房 roomId 前缀(纯 Redis,不入库) */
+const PVE_ROOM_PREFIX = 'pve:';
+/** 人机练习 Redis 键 TTL:2 小时(被遗弃的练习房自动过期) */
+const PVE_TTL_SECONDS = 2 * 60 * 60;
+
+/** 人机练习开局参数 */
+export interface StartPveOptions {
+  difficulty: BotDifficulty;
+  botCount: number;
+  baseScore: number;
+}
+
+/** 是否为人机练习房 */
+function isPveRoom(roomId: string): boolean {
+  return roomId.startsWith(PVE_ROOM_PREFIX);
+}
 
 /** 对局编排服务:加载状态 → 应用动作 → 持久化 → 执行副作用 → 广播 */
 export class GameService {
@@ -18,6 +45,8 @@ export class GameService {
     private readonly publisher: GamePublisher,
     private readonly scheduler: GameScheduler,
     private readonly settlement: GameSettlementSink,
+    /** 人机练习元信息存储(可选;仅 PvE 路径使用) */
+    private readonly pveStore?: PveRecordStore,
   ) {}
 
   async startRound(
@@ -34,6 +63,7 @@ export class GameService {
   async act(roomId: string, action: GameAction, viewerSeatId: string): Promise<PublicGameState> {
     const state = await this.store.load(roomId);
     if (!state) throw GameError.wrongPhase('对局尚未开始');
+    if (isPveRoom(roomId)) return this.dispatchPve(state, action, viewerSeatId);
     return this.dispatch(state, action, viewerSeatId);
   }
 
@@ -74,6 +104,106 @@ export class GameService {
 
     await this.publisher.broadcast(next);
     return projectState(next, viewerSeatId);
+  }
+
+  // ───────────────────────── 人机练习(PvE)路径 ─────────────────────────
+  //
+  // 设计要点(与 PvP 路径完全隔离):
+  // - 纯 Redis、不入库:绝不调用 settlement.apply(机器人无 users 行,练习不计真实筹码/战绩)。
+  // - 机器人 100% 服务端驱动,无需 QStash:不调用 scheduler.schedule。
+  // - 状态以 TTL 保存,遗弃的练习房自动过期。
+  // - 仅按 JWT 的 viewerSeatId(= 人类 user.id)授权动作;reducer 校验其确为本局玩家。
+
+  /** 开一局人机练习:建初始状态 → START_ROUND → 机器人抢庄 → 落 Redis(带 TTL)→ 广播 */
+  async startPve(
+    humanUserId: string,
+    opts: StartPveOptions,
+  ): Promise<{ roomId: string; state: PublicGameState }> {
+    const { difficulty, botCount, baseScore } = opts;
+    const roomId = `${PVE_ROOM_PREFIX}${crypto.randomUUID()}`;
+
+    const seats: SeatInput[] = [
+      { seatId: humanUserId, seatNo: 0 },
+      ...Array.from({ length: botCount }, (_, i) => ({
+        seatId: `${BOT_SEAT_PREFIX}${i + 1}`,
+        seatNo: i + 1,
+      })),
+    ];
+
+    const initial = createInitialState({ roomId, baseScore, seats });
+    const started = applyAction(initial, { type: 'START_ROUND', now: Date.now() }).state;
+    // 机器人先抢庄(以及任何当前阶段它们应做的操作)
+    const { state: driven } = driveBots(started, difficulty);
+
+    const record: PveRecord = { difficulty, createdBy: humanUserId, baseScore, botCount };
+    await this.savePveState(driven);
+    await this.pveStore?.save(roomId, record, PVE_TTL_SECONDS);
+    await this.publisher.broadcast(driven);
+
+    return { roomId, state: projectState(driven, humanUserId) };
+  }
+
+  /** 同一练习房开下一局:仅创建者可操作;重新 START_ROUND → 机器人抢庄 → 落 Redis → 广播 */
+  async nextPveRound(roomId: string, humanUserId: string): Promise<PublicGameState> {
+    const state = await this.store.load(roomId);
+    if (!state) throw GameError.wrongPhase('练习房不存在或已过期');
+    const record = await this.loadPveRecord(roomId);
+    if (record.createdBy !== humanUserId) throw GameError.notInGame('仅练习房创建者可开下一局');
+
+    const started = applyAction(state, { type: 'START_ROUND', now: Date.now() }).state;
+    const { state: driven } = driveBots(started, record.difficulty);
+
+    await this.savePveState(driven);
+    // 续期元信息 TTL,保持与状态一致
+    await this.pveStore?.save(roomId, record, PVE_TTL_SECONDS);
+    await this.publisher.broadcast(driven);
+
+    return projectState(driven, humanUserId);
+  }
+
+  /**
+   * PvE 动作派发:应用人类动作后驱动机器人补齐其义务。
+   * 跳过结算落库与 QStash;逐步广播每个中间静止态(便于前端呈现机器人逐个行动)。
+   */
+  private async dispatchPve(
+    state: GameState,
+    action: GameAction,
+    viewerSeatId: string,
+  ): Promise<PublicGameState> {
+    const record = await this.loadPveRecord(state.roomId);
+
+    // 1) 人类动作
+    const afterHuman = applyAction(state, action).state;
+    // 2) 机器人补齐(跨自动阶段切换),收集中间态用于逐步广播
+    const { state: final, steps } = driveBots(afterHuman, record.difficulty);
+
+    // 持久化最终态(带 TTL);绝不落库结算、绝不调度定时器
+    await this.savePveState(final);
+
+    // 逐步广播:先广播人类动作后的静止态,再依次广播机器人每一步;
+    // 若无机器人步骤则至少广播一次最终态。
+    const frames = steps.length > 0 ? [afterHuman, ...steps] : [final];
+    for (const frame of frames) {
+      await this.publisher.broadcast(frame);
+    }
+
+    return projectState(final, viewerSeatId);
+  }
+
+  /** 读取练习房元信息;缺失则报错(状态在、记录丢失视为异常/过期) */
+  private async loadPveRecord(roomId: string): Promise<PveRecord> {
+    const record = await this.pveStore?.load(roomId);
+    if (!record) throw GameError.wrongPhase('练习房信息不存在或已过期');
+    return record;
+  }
+
+  /** 保存 PvE 状态:优先带 TTL,store 未实现 saveEphemeral 时回退普通 save */
+  private async savePveState(state: GameState): Promise<void> {
+    if (this.store.saveEphemeral) {
+      await this.store.saveEphemeral(state.roomId, state, PVE_TTL_SECONDS);
+    } else {
+      await this.store.save(state.roomId, state);
+    }
   }
 }
 
