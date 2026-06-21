@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { getGameService } from '@/lib/game';
+import { roomIdParamSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/http';
 
 export const runtime = 'nodejs';
@@ -13,7 +14,8 @@ export async function POST(
 ): Promise<NextResponse> {
   try {
     const user = await requireUser(req);
-    const { roomId } = await params;
+    const { roomId: rawRoomId } = await params;
+    const roomId = roomIdParamSchema.parse(rawRoomId);
     const view = await getGameService().nextPveRound(roomId, user.id);
     return NextResponse.json(view);
   } catch (err) {

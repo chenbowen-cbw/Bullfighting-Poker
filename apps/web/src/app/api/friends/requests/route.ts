@@ -27,11 +27,13 @@ export async function POST(req: Request): Promise<NextResponse> {
     const { toUsername } = sendFriendRequestSchema.parse(body);
     const request = await getFriendsService().sendRequest(user.id, toUsername);
     if (request.status === 'pending') {
-      // 新建请求:通知收件人收到好友申请
-      await userNotifier.notifyFriendRequest(request.addresseeId, user);
+      // 新建请求:发起方=我,通知收件人(规范化对中的另一方)收到好友申请
+      const recipientId =
+        request.initiatorId === request.requesterId ? request.addresseeId : request.requesterId;
+      await userNotifier.notifyFriendRequest(recipientId, user);
     } else {
-      // 自动接受(对方此前已向我发出请求):通知原发起人你们已成好友
-      await userNotifier.notifyFriendAccepted(request.requesterId, user);
+      // 自动接受(对方此前已向我发出请求):通知原发起人(initiatorId)你们已成好友
+      await userNotifier.notifyFriendAccepted(request.initiatorId, user);
     }
     return NextResponse.json({ request }, { status: 201 });
   } catch (err) {

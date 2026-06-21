@@ -1,10 +1,11 @@
 import { and, eq, or } from 'drizzle-orm';
 import { friendships, users, type Database } from '@bullfighting/db';
-import type {
-  FriendsRepository,
-  FriendUserRecord,
-  Friendship,
-  FriendStatus,
+import {
+  normalizePair,
+  type FriendsRepository,
+  type FriendUserRecord,
+  type Friendship,
+  type FriendStatus,
 } from '@bullfighting/friends';
 
 type FriendshipRow = typeof friendships.$inferSelect;
@@ -27,27 +28,34 @@ export class DrizzleFriendsRepository implements FriendsRepository {
   }
 
   async findFriendshipBetween(a: string, b: string): Promise<Friendship | null> {
-    const [na, nb] = [Number(a), Number(b)];
+    const na = Number(a);
+    const nb = Number(b);
+    if (!Number.isFinite(na) || !Number.isFinite(nb)) return null;
+    // 规范化无序对(low<high)后命中唯一行,确定性查询
+    const { low, high } = normalizePair(a, b);
     const [row] = await this.db
       .select()
       .from(friendships)
       .where(
-        or(
-          and(eq(friendships.requesterId, na), eq(friendships.addresseeId, nb)),
-          and(eq(friendships.requesterId, nb), eq(friendships.addresseeId, na)),
-        ),
+        and(eq(friendships.requesterId, Number(low)), eq(friendships.addresseeId, Number(high))),
       )
       .limit(1);
     return row ? toFriendship(row) : null;
   }
 
-  async createRequest(requesterId: string, addresseeId: string): Promise<Friendship> {
+  async createRequest(
+    requesterId: string,
+    addresseeId: string,
+    initiatorId: string,
+    status: FriendStatus,
+  ): Promise<Friendship> {
     const [row] = await this.db
       .insert(friendships)
       .values({
         requesterId: Number(requesterId),
         addresseeId: Number(addresseeId),
-        status: 'pending',
+        initiatorId: Number(initiatorId),
+        status,
       })
       .returning();
     return toFriendship(row);
@@ -65,20 +73,25 @@ export class DrizzleFriendsRepository implements FriendsRepository {
   }
 
   async updateStatus(id: string, status: FriendStatus): Promise<Friendship | null> {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) return null;
     const [row] = await this.db
       .update(friendships)
       .set({ status, updatedAt: new Date() })
-      .where(eq(friendships.id, Number(id)))
+      .where(eq(friendships.id, numericId))
       .returning();
     return row ? toFriendship(row) : null;
   }
 
   async deleteFriendship(id: string): Promise<void> {
-    await this.db.delete(friendships).where(eq(friendships.id, Number(id)));
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) return;
+    await this.db.delete(friendships).where(eq(friendships.id, numericId));
   }
 
   async listAccepted(userId: string): Promise<Friendship[]> {
     const uid = Number(userId);
+    if (!Number.isFinite(uid)) return [];
     const rows = await this.db
       .select()
       .from(friendships)
@@ -91,19 +104,18 @@ export class DrizzleFriendsRepository implements FriendsRepository {
     return rows.map(toFriendship);
   }
 
-  async listIncomingPending(userId: string): Promise<Friendship[]> {
+  async listPending(userId: string): Promise<Friendship[]> {
+    const uid = Number(userId);
+    if (!Number.isFinite(uid)) return [];
     const rows = await this.db
       .select()
       .from(friendships)
-      .where(and(eq(friendships.status, 'pending'), eq(friendships.addresseeId, Number(userId))));
-    return rows.map(toFriendship);
-  }
-
-  async listOutgoingPending(userId: string): Promise<Friendship[]> {
-    const rows = await this.db
-      .select()
-      .from(friendships)
-      .where(and(eq(friendships.status, 'pending'), eq(friendships.requesterId, Number(userId))));
+      .where(
+        and(
+          eq(friendships.status, 'pending'),
+          or(eq(friendships.requesterId, uid), eq(friendships.addresseeId, uid)),
+        ),
+      );
     return rows.map(toFriendship);
   }
 }
@@ -113,6 +125,7 @@ function toFriendship(row: FriendshipRow): Friendship {
     id: String(row.id),
     requesterId: String(row.requesterId),
     addresseeId: String(row.addresseeId),
+    initiatorId: String(row.initiatorId),
     status: row.status as FriendStatus,
   };
 }

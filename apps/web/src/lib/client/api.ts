@@ -236,9 +236,14 @@ export const gameApi = {
   reveal(roomId: string): Promise<PublicGameState> {
     return request<PublicGameState>(`/api/game/${roomId}/reveal`, { method: 'POST', body: {} });
   },
-  /** 获取浏览器订阅用的 Ably TokenRequest */
-  realtimeToken(): Promise<AblyTokenRequest> {
-    return request<AblyTokenRequest>('/api/realtime/token');
+  /**
+   * 获取浏览器订阅用的 Ably TokenRequest。
+   * 传入 roomId 时,令牌能力会额外覆盖 `room:{roomId}` 与本人私有手牌频道;
+   * 不传则仅覆盖本人通知频道 `user:{id}`。
+   */
+  realtimeToken(roomId?: string): Promise<AblyTokenRequest> {
+    const qs = roomId ? `?roomId=${encodeURIComponent(roomId)}` : '';
+    return request<AblyTokenRequest>(`/api/realtime/token${qs}`);
   },
 };
 

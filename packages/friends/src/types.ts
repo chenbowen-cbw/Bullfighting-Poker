@@ -1,11 +1,18 @@
 /** 好友关系状态:pending=请求待处理,accepted=已成为好友 */
 export type FriendStatus = 'pending' | 'accepted';
 
-/** 好友关系记录(对应一条 friendships) */
+/**
+ * 好友关系记录(对应一条 friendships)。
+ *
+ * requesterId/addresseeId 为「规范化无序对」,恒满足 requesterId < addresseeId;
+ * 谁先发起由 initiatorId 标记(必为该对中的某一方),收件人=另一方。
+ */
 export interface Friendship {
   id: string;
   requesterId: string;
   addresseeId: string;
+  /** 发起方 id(规范化对中的某一方);收件人为另一方 */
+  initiatorId: string;
   status: FriendStatus;
 }
 

@@ -75,7 +75,11 @@ export class GameService {
 
   async getState(roomId: string, viewerSeatId: string): Promise<PublicGameState | null> {
     const state = await this.store.load(roomId);
-    return state ? projectState(state, viewerSeatId) : null;
+    if (!state) return null;
+    // 仅本局参与者可读取房间状态:viewer 不在座位中则视为无状态(sync 返回 404/空)。
+    // PvP 与 PvE 的人类玩家其 seatId 即 user.id,均在 players 内;旁观者/越权者读不到。
+    if (!state.players.some((p) => p.seatId === viewerSeatId)) return null;
+    return projectState(state, viewerSeatId);
   }
 
   private async dispatch(
@@ -171,6 +175,8 @@ export class GameService {
     viewerSeatId: string,
   ): Promise<PublicGameState> {
     const record = await this.loadPveRecord(state.roomId);
+    // 续期元信息 TTL:长局多动作时,避免 pve:{roomId} 记录键先于状态过期而丢失元信息
+    await this.pveStore?.save(state.roomId, record, PVE_TTL_SECONDS);
 
     // 1) 人类动作
     const afterHuman = applyAction(state, action).state;

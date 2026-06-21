@@ -5,6 +5,7 @@ import { friendsApi, friendlyMessage } from '@/lib/client/api';
 import type { FriendRequest, PublicFriend } from '@/lib/client/types';
 import { useToast } from '@/components/ui/Toast';
 import { CartoonButton } from '@/components/ui/CartoonButton';
+import { CartoonModal } from '@/components/ui/CartoonModal';
 
 interface FriendsPanelProps {
   /**
@@ -27,10 +28,15 @@ export function FriendsPanel({ onInvite, refreshSignal }: FriendsPanelProps) {
   const [incoming, setIncoming] = useState<FriendRequest[]>([]);
   const [outgoing, setOutgoing] = useState<FriendRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  /** 列表加载失败(区分"加载失败"与"空列表") */
+  const [loadError, setLoadError] = useState(false);
   const [username, setUsername] = useState('');
   const [sending, setSending] = useState(false);
   /** 正在处理中的条目 id(请求 id 或好友 id),用于按钮加载态 */
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** 待确认删除的好友(确认弹窗) */
+  const [pendingRemove, setPendingRemove] = useState<PublicFriend | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -42,7 +48,10 @@ export function FriendsPanel({ onInvite, refreshSignal }: FriendsPanelProps) {
       setFriends(friends);
       setIncoming(requests.incoming);
       setOutgoing(requests.outgoing);
+      setLoadError(false);
     } catch (err) {
+      // 区分加载失败与空列表:失败时渲染"加载失败,点此重试",而非"还没有好友"
+      setLoadError(true);
       pushToast('error', friendlyMessage(err));
     } finally {
       setLoading(false);
@@ -59,8 +68,13 @@ export function FriendsPanel({ onInvite, refreshSignal }: FriendsPanelProps) {
     if (!name || sending) return;
     setSending(true);
     try {
-      await friendsApi.sendRequest(name);
-      pushToast('success', `已向 ${name} 发送好友请求`);
+      const { request } = await friendsApi.sendRequest(name);
+      // 后端在对方此前已请求我时会自动接受(status='accepted'),据此区分提示文案
+      if (request.status === 'accepted') {
+        pushToast('success', `已和 ${name} 成为好友 🎉`);
+      } else {
+        pushToast('success', `已向 ${name} 发送好友请求`);
+      }
       setUsername('');
       await refresh();
     } catch (err) {
@@ -97,16 +111,20 @@ export function FriendsPanel({ onInvite, refreshSignal }: FriendsPanelProps) {
     }
   }
 
-  async function handleRemove(friend: PublicFriend) {
-    if (busyId) return;
-    setBusyId(friend.id);
+  /** 删除前先弹确认框,确认后才真正删除 */
+  async function confirmRemove() {
+    const friend = pendingRemove;
+    if (!friend || removing) return;
+    setRemoving(true);
     try {
       await friendsApi.remove(friend.id);
+      pushToast('success', `已删除好友 ${friend.nickname}`);
+      setPendingRemove(null);
       await refresh();
     } catch (err) {
       pushToast('error', friendlyMessage(err));
     } finally {
-      setBusyId(null);
+      setRemoving(false);
     }
   }
 
@@ -179,6 +197,13 @@ export function FriendsPanel({ onInvite, refreshSignal }: FriendsPanelProps) {
         </h3>
         {loading ? (
           <p className="py-6 text-center text-sm font-bold text-ink/50">加载中…</p>
+        ) : loadError ? (
+          <button
+            onClick={() => void refresh()}
+            className="block w-full py-6 text-center text-sm font-bold text-bull underline-offset-2 hover:underline"
+          >
+            加载失败,点此重试
+          </button>
         ) : friends.length === 0 ? (
           <p className="py-6 text-center text-sm font-bold text-ink/50">还没有好友,快去添加吧~</p>
         ) : (
@@ -203,7 +228,7 @@ export function FriendsPanel({ onInvite, refreshSignal }: FriendsPanelProps) {
                     </button>
                   )}
                   <button
-                    onClick={() => handleRemove(friend)}
+                    onClick={() => setPendingRemove(friend)}
                     disabled={busyId === friend.id}
                     className="btn-cartoon bg-bull px-3 py-1 text-xs text-chalk"
                   >
@@ -232,6 +257,30 @@ export function FriendsPanel({ onInvite, refreshSignal }: FriendsPanelProps) {
           </ul>
         </section>
       )}
+
+      {/* 删除好友二次确认 */}
+      <CartoonModal
+        open={Boolean(pendingRemove)}
+        title="删除好友"
+        onClose={() => setPendingRemove(null)}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-base font-bold text-ink">
+            确定要删除好友 <span className="text-bull">{pendingRemove?.nickname}</span> 吗?
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setPendingRemove(null)}
+              className="btn-cartoon bg-chalk px-4 py-2 text-sm text-ink"
+            >
+              取消
+            </button>
+            <CartoonButton variant="bull" loading={removing} onClick={confirmRemove}>
+              删除
+            </CartoonButton>
+          </div>
+        </div>
+      </CartoonModal>
     </div>
   );
 }

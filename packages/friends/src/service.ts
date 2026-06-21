@@ -1,4 +1,4 @@
-import type { FriendsRepository } from './repository';
+import { normalizePair, type FriendsRepository } from './repository';
 import type { Friendship, FriendRequest, PublicFriend } from './types';
 import { FriendsError } from './errors';
 
@@ -14,8 +14,16 @@ function isUniqueViolation(err: unknown): boolean {
   );
 }
 
+/** 取关系中的「收件人」id:规范化对里非发起方的那一方 */
+function recipientOf(f: Friendship): string {
+  return f.initiatorId === f.requesterId ? f.addresseeId : f.requesterId;
+}
+
 /**
  * 好友服务:好友请求 / 接受 / 拒绝 / 列表 / 删除。依赖注入 FriendsRepository。
+ *
+ * 配对规范化:每对好友以「无序对(low<high)」存一行,谁先发起记在 initiatorId,
+ * 收件人=另一方。如此 A→B 与 B→A 命中同一行,杜绝并发双插的重复关系。
  *
  * 所有写操作都基于"已通过 JWT 鉴权的 userId"做授权,绝不信任请求体里的归属 id。
  */
@@ -27,54 +35,67 @@ export class FriendsService {
    * - 用户名解析失败 → USER_NOT_FOUND;
    * - 加自己 → CANNOT_FRIEND_SELF;
    * - 已是好友 → ALREADY_FRIENDS;
-   * - 我已请求对方(同向 pending)→ REQUEST_EXISTS;
-   * - 对方已请求我(反向 pending)→ 自动接受并返回 accepted 关系;
-   * - 否则创建 pending 请求。
+   * - 我已发起(同向 pending,initiator===我)→ REQUEST_EXISTS;
+   * - 对方已发起(反向 pending,initiator!==我)→ 自动接受并返回 accepted 关系;
+   * - 否则创建规范化 pending 请求(initiator=我)。
    */
   async sendRequest(fromUserId: string, toUsername: string): Promise<Friendship> {
     const target = await this.repo.findUserByUsername(toUsername);
     if (!target) throw FriendsError.userNotFound();
     if (target.id === fromUserId) throw FriendsError.cannotFriendSelf();
 
-    const existing = await this.repo.findFriendshipBetween(fromUserId, target.id);
+    const { low, high } = normalizePair(fromUserId, target.id);
+    const existing = await this.repo.findFriendshipBetween(low, high);
     if (existing) {
       if (existing.status === 'accepted') throw FriendsError.alreadyFriends();
-      // pending:同向重复 → 冲突;反向 → 自动接受(对方早已向我发出请求)
-      if (existing.requesterId === fromUserId) throw FriendsError.requestExists();
+      // pending:发起方是我 → 同向重复;发起方是对方 → 自动接受(对方早已请求我)
+      if (existing.initiatorId === fromUserId) throw FriendsError.requestExists();
       const accepted = await this.repo.updateStatus(existing.id, 'accepted');
       return accepted ?? { ...existing, status: 'accepted' };
     }
 
     try {
-      return await this.repo.createRequest(fromUserId, target.id);
+      return await this.repo.createRequest(low, high, fromUserId, 'pending');
     } catch (err) {
-      // 并发下唯一约束兜底:把竞态插入冲突视为"请求已存在",而非 500
-      if (isUniqueViolation(err)) throw FriendsError.requestExists();
+      // 并发下唯一约束兜底:竞态插入冲突 → 重读并解析,而非 500
+      if (isUniqueViolation(err)) {
+        const raced = await this.repo.findFriendshipBetween(low, high);
+        if (raced) {
+          if (raced.status === 'accepted') throw FriendsError.alreadyFriends();
+          // 反向并发已抢先建好 pending:此刻接受即可成为好友
+          if (raced.initiatorId !== fromUserId) {
+            const accepted = await this.repo.updateStatus(raced.id, 'accepted');
+            return accepted ?? { ...raced, status: 'accepted' };
+          }
+        }
+        throw FriendsError.requestExists();
+      }
       throw err;
     }
   }
 
-  /** 接受请求:必须是待处理且收件人为本人,否则拒绝。 */
+  /** 接受请求:必须是待处理且收件人(非发起方)为本人,否则拒绝。 */
   async acceptRequest(userId: string, requestId: string): Promise<Friendship> {
     const request = await this.repo.findRequestById(requestId);
     if (!request || request.status !== 'pending') throw FriendsError.requestNotFound();
-    if (request.addresseeId !== userId) throw FriendsError.forbidden();
+    if (recipientOf(request) !== userId) throw FriendsError.forbidden();
     const accepted = await this.repo.updateStatus(requestId, 'accepted');
     if (!accepted) throw FriendsError.requestNotFound();
     return accepted;
   }
 
-  /** 拒绝请求:授权同 accept;直接删除该 pending 请求。 */
+  /** 拒绝请求:授权同 accept(仅收件人);直接删除该 pending 请求。 */
   async rejectRequest(userId: string, requestId: string): Promise<void> {
     const request = await this.repo.findRequestById(requestId);
     if (!request || request.status !== 'pending') throw FriendsError.requestNotFound();
-    if (request.addresseeId !== userId) throw FriendsError.forbidden();
+    if (recipientOf(request) !== userId) throw FriendsError.forbidden();
     await this.repo.deleteFriendship(requestId);
   }
 
   /** 删除好友:必须存在包含双方的 accepted 关系,否则 NOT_FRIENDS。 */
   async removeFriend(userId: string, friendId: string): Promise<void> {
-    const friendship = await this.repo.findFriendshipBetween(userId, friendId);
+    const { low, high } = normalizePair(userId, friendId);
+    const friendship = await this.repo.findFriendshipBetween(low, high);
     if (!friendship || friendship.status !== 'accepted') throw FriendsError.notFriends();
     await this.repo.deleteFriendship(friendship.id);
   }
@@ -90,7 +111,7 @@ export class FriendsService {
     if (!(await this.areFriends(userId, otherId))) throw FriendsError.notFriends();
   }
 
-  /** 好友列表:accepted 关系 → 对方的公开资料。 */
+  /** 好友列表:accepted 关系 → 对方的公开资料(规范化后天然去重)。 */
   async listFriends(userId: string): Promise<PublicFriend[]> {
     const accepted = await this.repo.listAccepted(userId);
     const friends: PublicFriend[] = [];
@@ -102,17 +123,20 @@ export class FriendsService {
     return friends;
   }
 
-  /** 待处理请求:incoming(别人请求我)与 outgoing(我请求别人)。 */
+  /** 待处理请求:incoming(别人发起、待我处理)与 outgoing(我发起、待对方处理)。 */
   async listRequests(
     userId: string,
   ): Promise<{ incoming: FriendRequest[]; outgoing: FriendRequest[] }> {
-    const [incomingRows, outgoingRows] = await Promise.all([
-      this.repo.listIncomingPending(userId),
-      this.repo.listOutgoingPending(userId),
-    ]);
+    const pending = await this.repo.listPending(userId);
+    const incomingRows = pending.filter((f) => f.initiatorId !== userId);
+    const outgoingRows = pending.filter((f) => f.initiatorId === userId);
 
-    const incoming = await this.toRequests(incomingRows, 'incoming', (f) => f.requesterId);
-    const outgoing = await this.toRequests(outgoingRows, 'outgoing', (f) => f.addresseeId);
+    // 对方 = 规范化对里非本人的一方
+    const otherOf = (f: Friendship): string =>
+      f.requesterId === userId ? f.addresseeId : f.requesterId;
+
+    const incoming = await this.toRequests(incomingRows, 'incoming', otherOf);
+    const outgoing = await this.toRequests(outgoingRows, 'outgoing', otherOf);
     return { incoming, outgoing };
   }
 

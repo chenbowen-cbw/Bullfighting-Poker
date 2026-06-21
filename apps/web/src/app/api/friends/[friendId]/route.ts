@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { getFriendsService } from '@/lib/friends';
+import { idParamSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/http';
 
 export const runtime = 'nodejs';
@@ -13,7 +14,8 @@ export async function DELETE(
 ): Promise<NextResponse> {
   try {
     const user = await requireUser(req);
-    const { friendId } = await params;
+    const { friendId: rawFriendId } = await params;
+    const friendId = String(idParamSchema.parse(rawFriendId));
     await getFriendsService().removeFriend(user.id, friendId);
     return NextResponse.json({ ok: true });
   } catch (err) {

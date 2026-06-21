@@ -16,6 +16,10 @@ const DIFFICULTIES: { value: StartPveInput['difficulty']; label: string; emoji: 
   { value: 'hard', label: '困难', emoji: '🔴' },
 ];
 
+/** 底分允许范围(与后端 startPveSchema 的 baseScore 上下限保持一致) */
+const MIN_BASE_SCORE = 1;
+const MAX_BASE_SCORE = 1000;
+
 /** 人机练习设置:难度 / 机器人数量 / 底分。提交后开局并进入练习场。 */
 export function PveSetupForm({ onStarted }: PveSetupFormProps) {
   const pushToast = useToast((s) => s.push);
@@ -78,11 +82,22 @@ export function PveSetupForm({ onStarted }: PveSetupFormProps) {
           <input
             className="input-cartoon"
             type="number"
-            min={1}
+            min={MIN_BASE_SCORE}
+            max={MAX_BASE_SCORE}
             value={baseScore}
-            onChange={(e) => setBaseScore(Math.max(1, Number(e.target.value) || 1))}
+            onChange={(e) =>
+              setBaseScore(
+                Math.min(
+                  MAX_BASE_SCORE,
+                  Math.max(MIN_BASE_SCORE, Number(e.target.value) || MIN_BASE_SCORE),
+                ),
+              )
+            }
             required
           />
+          <span className="px-2 text-xs font-semibold text-ink/40">
+            可填 {MIN_BASE_SCORE}–{MAX_BASE_SCORE}
+          </span>
         </label>
       </div>
 

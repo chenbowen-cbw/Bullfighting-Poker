@@ -6,7 +6,7 @@ import { friendlyMessage, gameApi, pveApi } from '@/lib/client/api';
 import { useAuthStore, useGameStore } from '@/lib/client/store';
 import { useRequireAuth } from '@/lib/client/useAuth';
 import { useRealtime } from '@/lib/client/useRealtime';
-import type { PublicPlayer } from '@/lib/client/types';
+import type { GamePhase, PublicPlayer } from '@/lib/client/types';
 import { useToast } from '@/components/ui/Toast';
 import { CartoonButton } from '@/components/ui/CartoonButton';
 import { BullMascot } from '@/components/ui/BullMascot';
@@ -26,6 +26,26 @@ function isBotPlayer(p: PublicPlayer): boolean {
 function seatLabel(p: PublicPlayer): string {
   if (isBotPlayer(p)) return `机器人${p.seatId.slice(BOT_PREFIX.length)}`;
   return `座位 ${p.seatNo + 1}`;
+}
+
+/**
+ * 当前阶段人类是否仍欠一个动作(用于"轮到你啦!"提示)。
+ * - rob_banker:尚未抢庄(robMultiplier==null);
+ * - betting:非庄家且尚未下注(betMultiplier==null);
+ * - reveal:尚未亮牌(!revealed)。
+ */
+function humanOwesAction(phase: GamePhase, me: PublicPlayer | undefined): boolean {
+  if (!me) return false;
+  switch (phase) {
+    case 'rob_banker':
+      return me.robMultiplier == null;
+    case 'betting':
+      return !me.isBanker && me.betMultiplier == null;
+    case 'reveal':
+      return !me.revealed;
+    default:
+      return false;
+  }
 }
 
 /**
@@ -126,6 +146,11 @@ export default function PvePage() {
   if (!authed) return null;
 
   const me = game?.players.find((p) => p.seatId === user?.id);
+  // 轮到人类行动:高亮提示;否则(且未结算)说明机器人正在依次行动
+  const myTurn = game ? humanOwesAction(game.phase, me) : false;
+  const botsResolving = Boolean(
+    game && !myTurn && game.phase !== 'settled' && game.phase !== 'waiting',
+  );
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 p-3">
@@ -146,8 +171,19 @@ export default function PvePage() {
 
       {/* 阶段横幅 + 倒计时 */}
       {game && (
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center justify-center gap-2">
           <PhaseBanner phase={game.phase} deadline={game.deadline} />
+          {/* 回合提示:轮到你时高亮跳动;机器人行动时给出轻提示 */}
+          {myTurn && (
+            <span className="badge-cartoon animate-bounce bg-tangerine px-4 py-1 text-sm text-chalk">
+              👉 轮到你啦!
+            </span>
+          )}
+          {botsResolving && (
+            <span className="badge-cartoon bg-chalk px-4 py-1 text-sm text-ink/60">
+              🤖 机器人行动中…
+            </span>
+          )}
         </div>
       )}
 

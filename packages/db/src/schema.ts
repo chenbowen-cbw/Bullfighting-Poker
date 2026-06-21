@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   bigserial,
@@ -11,6 +12,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  check,
 } from 'drizzle-orm/pg-core';
 
 /** 用户与筹码余额 */
@@ -133,7 +135,14 @@ export const roundPlayers = pgTable(
   (t) => [index('round_players_round_idx').on(t.roundId)],
 );
 
-/** 好友关系(请求 / 已成为好友) */
+/**
+ * 好友关系(请求 / 已成为好友)。
+ *
+ * 配对规范化:requesterId/addresseeId 存「规范化无序对」,恒满足 requesterId < addresseeId
+ * (CHECK 约束 + 应用层归一)。于是 A↔B 与 B↔A 映射到同一行,UNIQUE(requester, addressee)
+ * 让无序对去重,杜绝并发双插造成的重复 pending / 重复 accepted。
+ * 谁先发起由 initiatorId 记录(必为该对中的某一方),用于区分收/发方向与授权。
+ */
 export const friendships = pgTable(
   'friendships',
   {
@@ -144,15 +153,21 @@ export const friendships = pgTable(
     addresseeId: bigint('addressee_id', { mode: 'number' })
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    /** 发起方(必为 requesterId/addresseeId 之一);收件人=另一方 */
+    initiatorId: bigint('initiator_id', { mode: 'number' })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     status: varchar('status', { length: 16 }).notNull().default('pending'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    // 同一对 (requester, addressee) 仅一条:并发去重的兜底锚点
+    // 规范化无序对(requester < addressee)仅一条:并发去重的兜底锚点
     uniqueIndex('friendships_pair_uniq').on(t.requesterId, t.addresseeId),
     index('friendships_addressee_idx').on(t.addresseeId),
     index('friendships_requester_idx').on(t.requesterId),
+    // 强制规范化:小 id 在前,保证无序对唯一映射到一行
+    check('friendships_pair_order', sql`${t.requesterId} < ${t.addresseeId}`),
   ],
 );
 
