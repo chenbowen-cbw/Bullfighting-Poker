@@ -99,11 +99,19 @@ export class MatchmakingService {
       mode: 'rob_banker',
       minChips: 0,
     };
-    const created = await this.roomService.createRoom(group[0], config, 0);
-    for (const otherId of group.slice(1)) {
-      await this.roomService.join(created.room.id, otherId, 0);
+    try {
+      const created = await this.roomService.createRoom(group[0], config, 0);
+      for (const otherId of group.slice(1)) {
+        await this.roomService.join(created.room.id, otherId, 0);
+      }
+      return { status: 'matched', room: await this.roomService.getRoom(created.room.id) };
+    } catch (err) {
+      // 建房/入座失败:把已取出的玩家重新入队,避免他们既不在队列也不在房间里被"卡住"
+      for (const id of group) {
+        await this.queue.enqueue(baseScore, id);
+      }
+      throw err;
     }
-    return { status: 'matched', room: await this.roomService.getRoom(created.room.id) };
   }
 
   async cancel(userId: string, baseScore: number): Promise<void> {

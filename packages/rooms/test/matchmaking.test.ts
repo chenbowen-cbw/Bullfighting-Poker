@@ -61,4 +61,18 @@ describe('MatchmakingService', () => {
     await mm.cancel('u1', 1);
     expect(await queue.isQueued(1, 'u1')).toBe(false);
   });
+
+  it('建房失败时把已匹配玩家重新入队(不被吞掉)', async () => {
+    const queue = new InMemoryMatchmakingQueue();
+    const failingRoomService = {
+      createRoom: async () => {
+        throw new Error('db down');
+      },
+    } as unknown as RoomService;
+    const mm = new MatchmakingService(queue, failingRoomService, { matchSize: 2 });
+    await mm.quickMatch('u1', 1);
+    await expect(mm.quickMatch('u2', 1)).rejects.toThrow('db down');
+    expect(await queue.isQueued(1, 'u1')).toBe(true);
+    expect(await queue.isQueued(1, 'u2')).toBe(true);
+  });
 });

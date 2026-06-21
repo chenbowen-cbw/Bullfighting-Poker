@@ -106,6 +106,14 @@ export class RoomService {
     return { room, closed: false };
   }
 
+  /** 开局时把房间标记为进行中:退出大厅、阻止他人中途入座(仅 waiting → playing) */
+  async markPlaying(roomId: string): Promise<void> {
+    const room = await this.repo.findById(roomId);
+    if (room && room.status === 'waiting') {
+      await this.repo.updateStatus(roomId, 'playing');
+    }
+  }
+
   private validateConfig(config: RoomConfig): void {
     if (!config.name || config.name.length > NAME_MAX) {
       throw RoomError.invalidConfig(`房间名需为 1-${NAME_MAX} 字`);
