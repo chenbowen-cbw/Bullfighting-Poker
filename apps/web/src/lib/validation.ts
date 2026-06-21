@@ -27,3 +27,11 @@ export const joinRoomSchema = z.object({
 export const quickMatchSchema = z.object({
   baseScore: z.number().int().min(1),
 });
+
+export const robSchema = z.object({
+  multiplier: z.number().int().min(0).max(10),
+});
+
+export const betSchema = z.object({
+  multiplier: z.number().int().min(1).max(10),
+});

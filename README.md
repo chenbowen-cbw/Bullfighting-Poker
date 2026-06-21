@@ -48,7 +48,7 @@ pnpm --filter @bullfighting/core test
 - [x] **M1** 规则引擎 — 抢庄斗牛 评牌/比牌/结算 + 穷举单测
 - [x] **M2** 用户/认证 + 数据库 — scrypt/JWT + Drizzle/Neon + 认证接口
 - [x] **M3** 大厅/房间/匹配 — 房间/座位 + Redis 快速匹配 + 大厅接口
-- [ ] M4 实时对局流程
+- [x] **M4** 实时对局流程 — 对局状态机 + Ably 广播 + QStash 超时 + 对局接口
 - [ ] M5 结算/计分/战绩
 - [ ] M6 前端 UI/动画
 - [ ] M7 测试/压测/安全
