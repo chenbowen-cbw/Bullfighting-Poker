@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import {
   createPooledDb,
   rounds,
@@ -41,8 +41,9 @@ export class DrizzleGameSettlement implements GameSettlementSink {
 
     try {
       const roundId = await db.transaction(async (tx) => {
-        // 1) 写 rounds,拿回自增 id
-        const [roundRow] = await tx
+        // 1) 写 rounds(幂等):同一 (roomId, roundNo) 已存在则跳过整局二次落库。
+        //    防止"最后一次亮牌"与"亮牌阶段超时回调"并发各结算一次,导致筹码翻倍。
+        const insertedRound = await tx
           .insert(rounds)
           .values({
             roomId: toUserId(round.roomId),
@@ -54,8 +55,21 @@ export class DrizzleGameSettlement implements GameSettlementSink {
             startedAt: new Date(),
             endedAt: new Date(),
           })
+          .onConflictDoNothing({ target: [rounds.roomId, rounds.roundNo] })
           .returning({ id: rounds.id });
-        const newRoundId = roundRow.id;
+
+        if (insertedRound.length === 0) {
+          // 已结算过 → 幂等返回既有 roundId,不再动筹码/账本/统计
+          const [existing] = await tx
+            .select({ id: rounds.id })
+            .from(rounds)
+            .where(
+              and(eq(rounds.roomId, toUserId(round.roomId)), eq(rounds.roundNo, round.roundNo)),
+            )
+            .limit(1);
+          return existing?.id ?? 0;
+        }
+        const newRoundId = insertedRound[0].id;
 
         // 2) 写 round_players(批量)
         if (playerRows.length > 0) {
@@ -83,8 +97,11 @@ export class DrizzleGameSettlement implements GameSettlementSink {
             .set({ chips: sql`${users.chips} + ${p.resultChips}`, updatedAt: new Date() })
             .where(eq(users.id, userId))
             .returning({ chips: users.chips });
-          // 玩家理应存在;防御性地兜底余额
-          const balanceAfter = updated?.chips ?? 0;
+          // 玩家必须存在;不存在则让整笔事务回滚,避免写出 balanceAfter=0 的假账本
+          if (!updated) {
+            throw new Error(`结算失败:用户 ${userId} 不存在`);
+          }
+          const balanceAfter = updated.chips;
 
           await tx.insert(transactions).values({
             userId,

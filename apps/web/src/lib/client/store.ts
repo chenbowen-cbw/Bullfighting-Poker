@@ -52,10 +52,10 @@ interface GameState {
   setState: (state: PublicGameState) => void;
   /**
    * 合并补丁:私有频道仅推送"本人手牌"等增量,
-   * 这里按 userId 把可见手牌合并进现有玩家。
+   * 这里按座位标识(seatId = userId)把可见手牌合并进现有玩家。
    */
   patchSelf: (patch: {
-    userId: string;
+    seatId: string;
     cards: PublicGameState['players'][number]['cards'];
   }) => void;
   setConnection: (c: GameState['connection']) => void;
@@ -66,13 +66,13 @@ export const useGameStore = create<GameState>((set) => ({
   state: null,
   connection: 'idle',
   setState: (state) => set({ state }),
-  patchSelf: ({ userId, cards }) =>
+  patchSelf: ({ seatId, cards }) =>
     set((prev) => {
       if (!prev.state) return prev;
       return {
         state: {
           ...prev.state,
-          players: prev.state.players.map((p) => (p.userId === userId ? { ...p, cards } : p)),
+          players: prev.state.players.map((p) => (p.seatId === seatId ? { ...p, cards } : p)),
         },
       };
     }),

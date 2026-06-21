@@ -20,6 +20,8 @@ export async function POST(
 
     const seatInputs = seats.map((s) => ({ seatId: s.userId, seatNo: s.seatNo }));
     const view = await getGameService().startRound(roomId, seatInputs, room.baseScore, user.id);
+    // 开局后把房间标记为进行中,阻止他人从大厅中途入座造成花名册不一致
+    await getRoomService().markPlaying(roomId);
     return NextResponse.json(view, { status: 201 });
   } catch (err) {
     return errorResponse(err);

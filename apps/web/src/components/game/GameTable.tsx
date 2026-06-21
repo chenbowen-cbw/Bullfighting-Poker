@@ -16,10 +16,10 @@ interface GameTableProps {
  * 把"我"固定排在最下方(顺时针重排),更符合手游直觉。
  */
 export function GameTable({ game, selfUserId }: GameTableProps) {
-  const players = [...game.players].sort((a, b) => a.seatId - b.seatId);
+  const players = [...game.players].sort((a, b) => a.seatNo - b.seatNo);
 
   // 让自己排到列表首位(置于底部中央),其余顺时针排开
-  const selfIdx = players.findIndex((p) => p.userId === selfUserId);
+  const selfIdx = players.findIndex((p) => p.seatId === selfUserId);
   const ordered =
     selfIdx >= 0 ? [...players.slice(selfIdx), ...players.slice(0, selfIdx)] : players;
 
@@ -46,7 +46,7 @@ export function GameTable({ game, selfUserId }: GameTableProps) {
             transition={{ type: 'spring', stiffness: 400, damping: 18 }}
             className="badge-cartoon bg-tangerine px-3 py-1 text-sm text-chalk"
           >
-            👑 庄家 {bankerNickname(game)}
+            👑 庄家 {bankerLabel(game)}
           </motion.div>
         )}
       </div>
@@ -63,14 +63,15 @@ export function GameTable({ game, selfUserId }: GameTableProps) {
         const cy = 50 + ry * Math.sin(rad);
         return (
           <div
-            key={p.userId}
+            key={p.seatId}
             className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{ left: `${cx}%`, top: `${cy}%` }}
           >
             <PlayerSeat
               player={p}
               phase={game.phase}
-              isSelf={p.userId === selfUserId}
+              displayName={`座位 ${p.seatNo + 1}`}
+              isSelf={p.seatId === selfUserId}
               isBanker={game.bankerSeatId === p.seatId}
             />
           </div>
@@ -80,8 +81,8 @@ export function GameTable({ game, selfUserId }: GameTableProps) {
   );
 }
 
-/** 取庄家昵称(找不到则空) */
-function bankerNickname(game: PublicGameState): string {
+/** 取庄家座位标签(对局公开态无昵称,故用座位号) */
+function bankerLabel(game: PublicGameState): string {
   const banker = game.players.find((p) => p.seatId === game.bankerSeatId);
-  return banker ? banker.nickname : '';
+  return banker ? `座位 ${banker.seatNo + 1}` : '';
 }

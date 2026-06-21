@@ -103,7 +103,11 @@ export const rounds = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }),
     endedAt: timestamp('ended_at', { withTimezone: true }),
   },
-  (t) => [index('rounds_room_idx').on(t.roomId)],
+  (t) => [
+    index('rounds_room_idx').on(t.roomId),
+    // 幂等锚点:同一房间同一局号唯一,结算可用 ON CONFLICT DO NOTHING 防重复落库
+    uniqueIndex('rounds_room_round_uniq').on(t.roomId, t.roundNo),
+  ],
 );
 
 /** 局内每玩家结果 */

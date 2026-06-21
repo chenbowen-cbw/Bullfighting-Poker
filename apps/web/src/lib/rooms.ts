@@ -20,7 +20,10 @@ let matchmakingService: MatchmakingService | undefined;
 export function getMatchmakingService(): MatchmakingService {
   if (!matchmakingService) {
     const redis = Redis.fromEnv();
-    const matchSize = Number(process.env.MATCH_SIZE ?? 4);
+    // 容错:空串/非法值(Number('')===0)回退默认 4,避免 matchSize=0 立即"匹配"出非法房间
+    const parsedMatchSize = Number(process.env.MATCH_SIZE);
+    const matchSize =
+      Number.isInteger(parsedMatchSize) && parsedMatchSize >= 2 ? parsedMatchSize : 4;
     matchmakingService = new MatchmakingService(
       new RedisMatchmakingQueue(redis),
       getRoomService(),

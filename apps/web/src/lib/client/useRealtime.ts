@@ -76,7 +76,7 @@ export function useRealtime(roomId: string | null, userId: string | null): void 
         priv.subscribe('cards', (msg) => {
           if (cancelled) return;
           const data = msg.data as {
-            userId: string;
+            seatId: string;
             cards: PublicGameState['players'][number]['cards'];
           };
           patchSelf(data);

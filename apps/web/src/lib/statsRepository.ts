@@ -86,7 +86,7 @@ export class StatsRepository {
     };
   }
 
-  /** 取某用户最近的战绩(round_players JOIN rounds),按局结束时间倒序 */
+  /** 取某用户最近的战绩(round_players JOIN rounds),按 roundId 倒序(越大越新) */
   async listRecords(userId: number, limit: number, offset: number): Promise<RecordView[]> {
     const rowsResult = await this.db
       .select({

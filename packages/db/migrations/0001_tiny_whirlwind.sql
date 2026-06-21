@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "rounds_room_round_uniq" ON "rounds" USING btree ("room_id","round_no");

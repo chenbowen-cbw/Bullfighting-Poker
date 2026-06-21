@@ -1,11 +1,10 @@
 /**
  * 前端使用的 DTO 类型。
  *
- * 说明:本里程碑(M6 前端)聚焦 UI。对局后端(M4/M5,/api/game/*、/api/realtime/token)
- * 在当前分支尚未落地,因此这里按"已公布的接口契约"定义对局公开状态类型,
- * 供牌桌 UI 与实时订阅直接使用——后端一旦上线即可零改动对接。
- *
- * 认证 / 房间相关类型与现有 API 的真实返回保持一致。
+ * 对局公开状态类型严格对齐后端 @bullfighting/game 的 `projectState` 输出
+ * (PublicGameState / PublicGamePlayer):seatId 为字符串、牛型在 hand.type、
+ * 盈亏在 resultChips、局号为 roundNo、bankerSeatId 为字符串;公开态不含
+ * nickname / 当前筹码。认证 / 房间类型与现有 API 真实返回一致。
  */
 
 // ───────────────────────── 认证 ─────────────────────────
@@ -93,43 +92,62 @@ export type NiuType =
   | 'BOMB'
   | 'WU_XIAO_NIU';
 
-/** 对局中的一名玩家(公开视图) */
+/** 评牌结果(后端 projectState 下发的字段子集) */
+export interface HandResult {
+  /** 牛型 */
+  type: NiuType;
+  /** 牛值:牛牛=0,牛1..9=1..9,特殊牌型=-1 */
+  niuValue: number;
+  /** 原始 5 张牌 */
+  cards: Card[];
+  /** 四炸的四条点数(仅 BOMB),否则 null */
+  bombRank: Rank | null;
+}
+
+/**
+ * 对局中的一名玩家(公开视图)。
+ * 严格对齐后端 @bullfighting/game 的 PublicGamePlayer(projectState 输出)。
+ *
+ * 注意:对局公开态**不含 nickname / 当前筹码**;牛型在 `hand.type`,盈亏在
+ * `resultChips`,座位标识 `seatId` 为字符串(= userId)。昵称由展示层从会话取
+ * (仅自己),其他玩家以座位标签展示。
+ */
 export interface PublicPlayer {
-  /** 用户 id */
-  userId: string;
-  /** 座位号 */
-  seatId: number;
-  /** 昵称 */
-  nickname: string;
-  /** 当前筹码 */
-  chips: number;
-  /** 手牌:仅本人可见,或亮牌(reveal/settled)后全部可见;不可见时为 null */
-  cards: Card[] | null;
+  /** 座位标识 = 用户 id(字符串) */
+  seatId: string;
+  /** 座位号(0 起) */
+  seatNo: number;
+  /** 是否庄家 */
+  isBanker: boolean;
   /** 抢庄倍数(0=不抢);未决策为 null */
   robMultiplier: number | null;
-  /** 闲家下注倍数;未决策为 null */
+  /** 闲家下注倍数;未决策为 null(庄家恒 null) */
   betMultiplier: number | null;
-  /** 牛型(亮牌后);未揭晓为 null */
-  niuType: NiuType | null;
+  /** 是否已亮牌 */
+  revealed: boolean;
+  /** 当前阶段是否已完成应做操作 */
+  hasActed: boolean;
+  /** 手牌:仅本人可见,或亮牌/结算后全部可见;不可见为 null */
+  cards: Card[] | null;
+  /** 评牌结果:亮牌/结算后可见,否则 null;牛型用 hand.type */
+  hand: HandResult | null;
   /** 本局盈亏(结算后);未结算为 null */
-  delta: number | null;
-  /** 是否已离线/托管 */
-  ready?: boolean;
+  resultChips: number | null;
 }
 
 /** 对局公开状态(GET /api/game/[roomId]/sync 与实时 game:state 的 payload) */
 export interface PublicGameState {
   roomId: string;
-  /** 牌局序号(用于区分一局局) */
-  round: number;
+  /** 局号(房间内自增) */
+  roundNo: number;
   /** 当前阶段 */
   phase: GamePhase;
   /** 底分 */
   baseScore: number;
   /** 当前阶段截止时间(epoch ms);无限制为 null */
   deadline: number | null;
-  /** 庄家座位号;未定庄为 null */
-  bankerSeatId: number | null;
+  /** 庄家座位标识(= userId 字符串);未定庄为 null */
+  bankerSeatId: string | null;
   /** 玩家列表(按座位号) */
   players: PublicPlayer[];
 }

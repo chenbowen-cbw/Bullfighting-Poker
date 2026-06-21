@@ -105,4 +105,13 @@ describe('RoomService', () => {
     expect(open).toHaveLength(1);
     expect(open[0].status).toBe('waiting');
   });
+
+  it('markPlaying 把 waiting 房间置为 playing 并移出 listOpen(幂等)', async () => {
+    const { room } = await svc.createRoom('u1', baseConfig, 0);
+    await svc.markPlaying(room.id);
+    expect((await svc.getRoom(room.id)).room.status).toBe('playing');
+    expect(await svc.listOpen()).toHaveLength(0);
+    await svc.markPlaying(room.id); // 再次调用保持 playing,不抛错
+    expect((await svc.getRoom(room.id)).room.status).toBe('playing');
+  });
 });
