@@ -24,6 +24,31 @@ export interface AuthResult {
   token: string;
 }
 
+// ───────────────────────── 好友 ─────────────────────────
+
+/** 对外公开的好友信息(与后端 @bullfighting/friends 的 PublicFriend 对齐) */
+export interface PublicFriend {
+  id: string;
+  username: string;
+  nickname: string;
+  avatarUrl: string | null;
+  chips: number;
+  status: string;
+}
+
+/** 待处理好友请求(direction 区分收/发) */
+export interface FriendRequest {
+  id: string;
+  direction: 'incoming' | 'outgoing';
+  user: PublicFriend;
+}
+
+/** 好友请求列表返回 */
+export interface FriendRequests {
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
+}
+
 // ───────────────────────── 房间 / 大厅 ─────────────────────────
 
 export type RoomStatus = 'waiting' | 'playing' | 'closed';

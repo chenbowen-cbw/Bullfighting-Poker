@@ -13,6 +13,7 @@ import { BullMascot } from '@/components/ui/BullMascot';
 import { GameTable } from '@/components/game/GameTable';
 import { PhaseBanner } from '@/components/game/PhaseBanner';
 import { ActionBar } from '@/components/game/ActionBar';
+import { RoomInviteButton } from '@/components/friends/RoomInviteButton';
 
 /** 牌桌页:实时对局核心界面。 */
 export default function RoomPage() {
@@ -161,7 +162,10 @@ export default function RoomPage() {
             <span className="text-xs font-bold text-ink/50">房间号 #{room.room.roomCode}</span>
           )}
         </div>
-        <ConnectionPill state={connection} backendOnline={gameBackendOnline} />
+        <div className="flex items-center gap-2">
+          <RoomInviteButton roomId={roomId} />
+          <ConnectionPill state={connection} backendOnline={gameBackendOnline} />
+        </div>
       </header>
 
       {/* 阶段横幅 + 倒计时 */}

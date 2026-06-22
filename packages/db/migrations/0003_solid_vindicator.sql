@@ -1,0 +1,3 @@
+ALTER TABLE "friendships" ADD COLUMN "initiator_id" bigint NOT NULL;--> statement-breakpoint
+ALTER TABLE "friendships" ADD CONSTRAINT "friendships_initiator_id_users_id_fk" FOREIGN KEY ("initiator_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "friendships" ADD CONSTRAINT "friendships_pair_order" CHECK ("friendships"."requester_id" < "friendships"."addressee_id");

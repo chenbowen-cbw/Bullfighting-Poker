@@ -13,6 +13,7 @@
     "@bullfighting/auth": "workspace:*",
     "@bullfighting/core": "workspace:*",
     "@bullfighting/db": "workspace:*",
+    "@bullfighting/friends": "workspace:*",
     "@bullfighting/game": "workspace:*",
     "@bullfighting/rooms": "workspace:*",
     "@bullfighting/stats": "workspace:*",

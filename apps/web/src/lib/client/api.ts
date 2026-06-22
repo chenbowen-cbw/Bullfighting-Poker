@@ -7,6 +7,8 @@
  */
 import type {
   AuthResult,
+  FriendRequests,
+  PublicFriend,
   PublicGameState,
   PublicUser,
   QuickMatchResult,
@@ -170,6 +172,39 @@ export const roomApi = {
   },
 };
 
+// ───────────────────────── 好友 ─────────────────────────
+
+export const friendsApi = {
+  /** 我的好友列表 */
+  listFriends(): Promise<{ friends: PublicFriend[] }> {
+    return request<{ friends: PublicFriend[] }>('/api/friends');
+  },
+  /** 待处理请求(收/发) */
+  listRequests(): Promise<FriendRequests> {
+    return request<FriendRequests>('/api/friends/requests');
+  },
+  /** 按用户名发起好友请求 */
+  sendRequest(toUsername: string): Promise<{ request: { id: string; status: string } }> {
+    return request('/api/friends/requests', { method: 'POST', body: { toUsername } });
+  },
+  /** 接受请求 */
+  accept(requestId: string): Promise<{ friendship: { id: string; status: string } }> {
+    return request(`/api/friends/requests/${requestId}/accept`, { method: 'POST' });
+  },
+  /** 拒绝请求 */
+  reject(requestId: string): Promise<{ ok: true }> {
+    return request(`/api/friends/requests/${requestId}/reject`, { method: 'POST' });
+  },
+  /** 删除好友 */
+  remove(friendId: string): Promise<{ ok: true }> {
+    return request(`/api/friends/${friendId}`, { method: 'DELETE' });
+  },
+  /** 邀请好友进入指定房间 */
+  invite(friendId: string, roomId: string): Promise<{ ok: true }> {
+    return request(`/api/friends/${friendId}/invite`, { method: 'POST', body: { roomId } });
+  },
+};
+
 // ───────────────────────── 对局(M4/M5 后端上线后生效) ─────────────────────────
 
 /**
@@ -201,8 +236,36 @@ export const gameApi = {
   reveal(roomId: string): Promise<PublicGameState> {
     return request<PublicGameState>(`/api/game/${roomId}/reveal`, { method: 'POST', body: {} });
   },
-  /** 获取浏览器订阅用的 Ably TokenRequest */
-  realtimeToken(): Promise<AblyTokenRequest> {
-    return request<AblyTokenRequest>('/api/realtime/token');
+  /**
+   * 获取浏览器订阅用的 Ably TokenRequest。
+   * 传入 roomId 时,令牌能力会额外覆盖 `room:{roomId}` 与本人私有手牌频道;
+   * 不传则仅覆盖本人通知频道 `user:{id}`。
+   */
+  realtimeToken(roomId?: string | null): Promise<AblyTokenRequest> {
+    const qs = roomId ? `?roomId=${encodeURIComponent(roomId)}` : '';
+    return request<AblyTokenRequest>(`/api/realtime/token${qs}`);
+  },
+};
+
+// ───────────────────────── 人机练习(PvE) ─────────────────────────
+
+/** 人机练习开局参数 */
+export interface StartPveInput {
+  difficulty: 'easy' | 'medium' | 'hard';
+  botCount: number;
+  baseScore: number;
+}
+
+export const pveApi = {
+  /** 开一局人机练习,返回 roomId 与初始公开状态 */
+  start(opts: StartPveInput): Promise<{ roomId: string; state: PublicGameState }> {
+    return request<{ roomId: string; state: PublicGameState }>('/api/pve/start', {
+      method: 'POST',
+      body: opts,
+    });
+  },
+  /** 同一练习房开下一局 */
+  nextRound(roomId: string): Promise<PublicGameState> {
+    return request<PublicGameState>(`/api/pve/${roomId}/next-round`, { method: 'POST', body: {} });
   },
 };

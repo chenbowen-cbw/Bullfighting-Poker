@@ -29,9 +29,10 @@ export function useRealtime(roomId: string | null, userId: string | null): void 
 
     async function connect() {
       setConnection('connecting');
-      // 先确认 realtime token 接口可用,否则直接降级
+      // 先确认 realtime token 接口可用,否则直接降级。
+      // 带上 roomId,使签发的令牌能力覆盖 room:{roomId} 与本人私有手牌频道。
       try {
-        await gameApi.realtimeToken();
+        await gameApi.realtimeToken(roomId);
       } catch {
         if (!cancelled) setConnection('offline');
         return;
@@ -42,10 +43,11 @@ export function useRealtime(roomId: string | null, userId: string | null): void 
         if (cancelled) return;
 
         const realtime = new Ably.Realtime({
-          // 每次都向后端要新的 TokenRequest(JWT 在 api 客户端里自动带上)
+          // 每次都向后端要新的 TokenRequest(JWT 在 api 客户端里自动带上);
+          // 必须带 roomId,令牌能力才覆盖将订阅的 room 公共频道与本人私有手牌频道。
           authCallback: (_params, callback) => {
             gameApi
-              .realtimeToken()
+              .realtimeToken(roomId)
               .then((token) => callback(null, token as never))
               .catch((err) => callback(err as never, null));
           },
