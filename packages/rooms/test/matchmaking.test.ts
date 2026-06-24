@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { InMemoryMatchmakingQueue, MatchmakingService } from '../src/matchmaking';
+import {
+  InMemoryMatchmakingQueue,
+  MatchmakingService,
+  InMemoryMatchedRegistry,
+} from '../src/matchmaking';
 import { RoomService } from '../src/roomService';
 import { InMemoryRoomRepository } from '../src/repository';
 
@@ -8,6 +12,14 @@ function makeService(matchSize: number) {
   const roomService = new RoomService(new InMemoryRoomRepository(), { rng: () => 0.5 });
   const mm = new MatchmakingService(queue, roomService, { matchSize });
   return { queue, mm };
+}
+
+function makeServiceMatched(matchSize: number) {
+  const queue = new InMemoryMatchmakingQueue();
+  const matched = new InMemoryMatchedRegistry();
+  const roomService = new RoomService(new InMemoryRoomRepository(), { rng: () => 0.5 });
+  const mm = new MatchmakingService(queue, roomService, { matchSize }, matched);
+  return { queue, matched, mm };
 }
 
 describe('MatchmakingService', () => {
@@ -74,5 +86,29 @@ describe('MatchmakingService', () => {
     await expect(mm.quickMatch('u2', 1)).rejects.toThrow('db down');
     expect(await queue.isQueued(1, 'u1')).toBe(true);
     expect(await queue.isQueued(1, 'u2')).toBe(true);
+  });
+
+  it('被匹配的非触发者再次轮询时直接发现房间,且不被重新入队', async () => {
+    const { queue, mm } = makeServiceMatched(2);
+    await mm.quickMatch('u1', 1); // u1 排队
+    const triggered = await mm.quickMatch('u2', 1); // u2 触发匹配
+    expect(triggered.status).toBe('matched');
+    const roomId = triggered.status === 'matched' ? triggered.room.room.id : '';
+
+    // u1(非触发者)再次轮询:应直接发现同一房间,而非被重新塞回队列
+    const found = await mm.quickMatch('u1', 1);
+    expect(found.status).toBe('matched');
+    if (found.status === 'matched') expect(found.room.room.id).toBe(roomId);
+    expect(await queue.isQueued(1, 'u1')).toBe(false);
+  });
+
+  it('匹配指针为一次性:消费后再次轮询回到排队', async () => {
+    const { mm } = makeServiceMatched(2);
+    await mm.quickMatch('u1', 1);
+    await mm.quickMatch('u2', 1);
+    const first = await mm.quickMatch('u1', 1); // 命中指针 → matched
+    expect(first.status).toBe('matched');
+    const second = await mm.quickMatch('u1', 1); // 指针已消费 → 重新排队
+    expect(second.status).toBe('queued');
   });
 });

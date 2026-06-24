@@ -57,6 +57,14 @@ class UserNotifier {
   ): Promise<void> {
     await this.publish(toUserId, 'friend:invite', payload);
   }
+
+  /** 通知 toUserId:快速匹配已凑齐,你已被分到某房间(供前端自动跳转) */
+  async notifyMatchFound(
+    toUserId: string,
+    payload: { roomId: string; roomCode: string },
+  ): Promise<void> {
+    await this.publish(toUserId, 'match:found', payload);
+  }
 }
 
 /** 进程内单例 */

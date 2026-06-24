@@ -32,6 +32,8 @@ export function applyAction(
       return reveal(state, action.seatId, action.now);
     case 'TIMEOUT':
       return timeout(state, action.now, rng);
+    case 'REMOVE_PLAYER':
+      return removePlayer(state, action.seatId);
   }
 }
 
@@ -129,6 +131,45 @@ function timeout(state: GameState, now: number, rng: RNG): ApplyResult {
       return { state, effects: [] };
     default:
       return { state, effects: [] };
+  }
+}
+
+/**
+ * 移除玩家(中途离桌 / 掉线)。纯函数,无副作用。
+ * - 不在局内:原样返回(幂等)。
+ * - 进行中的回合(抢庄/下注/亮牌):本局作废回到等待——绝不部分结算,
+ *   也避免庄家离桌后无法结算的脏状态;余下玩家可重新开局。
+ * - 已结算(settled):该局账已落,保留结算视图;仅把离桌者移出花名册,
+ *   下一局 START_ROUND 自然不含他。
+ * - 移除后人数不足开局下限:确保停在等待态。
+ */
+function removePlayer(state: GameState, seatId: string): ApplyResult {
+  const idx = state.players.findIndex((p) => p.seatId === seatId);
+  if (idx < 0) return { state, effects: [] };
+  state.players.splice(idx, 1);
+
+  const midRound =
+    state.phase === 'rob_banker' || state.phase === 'betting' || state.phase === 'reveal';
+  const tooFew = state.players.length < state.config.minPlayers;
+  if (midRound || (tooFew && state.phase !== 'waiting')) {
+    voidRound(state);
+  }
+  return { state, effects: [] };
+}
+
+/** 作废当前回合,清空本局产物并回到等待态(无定时器) */
+function voidRound(state: GameState): void {
+  state.phase = 'waiting';
+  state.deadline = null;
+  state.bankerSeatId = null;
+  for (const p of state.players) {
+    p.isBanker = false;
+    p.robMultiplier = null;
+    p.betMultiplier = null;
+    p.cards = null;
+    p.hand = null;
+    p.revealed = false;
+    p.resultChips = null;
   }
 }
 

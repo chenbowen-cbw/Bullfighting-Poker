@@ -73,6 +73,35 @@ export class GameService {
     await this.dispatch(state, { type: 'TIMEOUT', now: Date.now() }, '');
   }
 
+  /**
+   * 玩家中途离桌/掉线:从对局花名册移除。
+   * 进行中的回合会被作废回到等待(绝不部分结算),人数不足则空置;随后广播新状态。
+   * 仅 PvP 调用(PvE 为单人临时房,不经此路径)。
+   */
+  async handlePlayerLeft(roomId: string, seatId: string): Promise<void> {
+    const state = await this.store.load(roomId);
+    if (!state || !state.players.some((p) => p.seatId === seatId)) return;
+    const { state: next } = applyAction(state, { type: 'REMOVE_PLAYER', seatId, now: Date.now() });
+    await this.store.save(next.roomId, next);
+    await this.publisher.broadcast(next);
+  }
+
+  /**
+   * 客户端超时兜底:当 QStash 定时未能触发时,由前端在察觉截止时间已过后调用。
+   * 仅参与者可触发,且仅当 deadline 确已过去时才推进一次 TIMEOUT(防止提前催熟)。
+   * PvE 由机器人同步驱动,不走此路径。
+   */
+  async tickIfExpired(roomId: string, viewerSeatId: string): Promise<PublicGameState | null> {
+    const state = await this.store.load(roomId);
+    if (!state) return null;
+    if (!state.players.some((p) => p.seatId === viewerSeatId)) return null;
+    if (state.deadline === null || Date.now() < state.deadline) {
+      return projectState(state, viewerSeatId);
+    }
+    if (isPveRoom(roomId)) return projectState(state, viewerSeatId);
+    return this.dispatch(state, { type: 'TIMEOUT', now: Date.now() }, viewerSeatId);
+  }
+
   async getState(roomId: string, viewerSeatId: string): Promise<PublicGameState | null> {
     const state = await this.store.load(roomId);
     if (!state) return null;
