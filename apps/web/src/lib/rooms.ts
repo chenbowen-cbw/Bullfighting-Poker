@@ -2,7 +2,7 @@ import { Redis } from '@upstash/redis';
 import { MatchmakingService, RoomService } from '@bullfighting/rooms';
 import { getDb } from './db';
 import { DrizzleRoomRepository } from './roomRepository';
-import { RedisMatchmakingQueue } from './matchmakingQueue';
+import { RedisMatchmakingQueue, RedisMatchedRegistry } from './matchmakingQueue';
 
 let roomService: RoomService | undefined;
 
@@ -28,6 +28,7 @@ export function getMatchmakingService(): MatchmakingService {
       new RedisMatchmakingQueue(redis),
       getRoomService(),
       { matchSize },
+      new RedisMatchedRegistry(redis),
     );
   }
   return matchmakingService;

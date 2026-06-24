@@ -23,7 +23,18 @@ export interface GameInviteNotice {
   fromUser: { id: string; nickname: string };
 }
 
-export type FriendNotice = FriendRequestNotice | FriendAcceptNotice | GameInviteNotice;
+/** 快速匹配通知:已凑齐,被分到某房间(供前端自动进入) */
+export interface MatchFoundNotice {
+  type: 'match:found';
+  roomId: string;
+  roomCode: string;
+}
+
+export type FriendNotice =
+  | FriendRequestNotice
+  | FriendAcceptNotice
+  | GameInviteNotice
+  | MatchFoundNotice;
 
 /** 单调自增序号 + 通知,便于 UI 用 useEffect 去重消费 */
 export interface FriendNoticeEvent {
@@ -88,6 +99,10 @@ export function useFriendNotifications(userId: string | null): FriendNoticeEvent
         channel.subscribe('friend:invite', (msg) => {
           const data = msg.data as Omit<GameInviteNotice, 'type'>;
           emit({ type: 'friend:invite', ...data });
+        });
+        channel.subscribe('match:found', (msg) => {
+          const data = msg.data as Omit<MatchFoundNotice, 'type'>;
+          emit({ type: 'match:found', ...data });
         });
       } catch {
         // 实时不可用:静默降级

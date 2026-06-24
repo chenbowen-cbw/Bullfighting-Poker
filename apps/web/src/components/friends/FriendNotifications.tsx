@@ -63,6 +63,13 @@ export function FriendNotifications() {
         if (n.roomId === here) return prev;
         return n;
       });
+    } else if (n.type === 'match:found') {
+      // 快速匹配凑齐:若尚不在该房则自动进入(大厅轮询为兜底)
+      const here = currentRoomIdFromPath(pathname);
+      if (n.roomId !== here) {
+        pushToast('success', '匹配成功!正在进入房间…');
+        router.push(`/room/${n.roomId}`);
+      }
     }
     // notice 每次新事件都是新对象,作为依赖即可保证每条只处理一次;
     // pushToast/router 为稳定引用,pathname 在事件到达时通过闭包读取最新值即可。

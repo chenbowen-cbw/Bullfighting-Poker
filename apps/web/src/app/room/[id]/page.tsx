@@ -6,6 +6,7 @@ import { ApiError, friendlyMessage, gameApi, roomApi } from '@/lib/client/api';
 import { useAuthStore, useGameStore } from '@/lib/client/store';
 import { useRequireAuth } from '@/lib/client/useAuth';
 import { useRealtime } from '@/lib/client/useRealtime';
+import { useTimeoutTick } from '@/lib/client/useTimeoutTick';
 import { deriveWaitingState } from '@/lib/client/derive';
 import type { RoomWithSeats } from '@/lib/client/types';
 import { useToast } from '@/components/ui/Toast';
@@ -91,6 +92,9 @@ export default function RoomPage() {
       pollRef.current = null;
     };
   }, [authed, gameBackendOnline, connection, roomId, setGame]);
+
+  // 超时兜底:本阶段 deadline 过去后催服务端推进一次(防 QStash 未触发导致卡阶段)
+  useTimeoutTick(authed && gameBackendOnline ? roomId : null, game?.deadline ?? null, setGame);
 
   // ── 动作 ──
   function guardBackend(): boolean {

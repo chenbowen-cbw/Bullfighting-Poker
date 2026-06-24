@@ -170,6 +170,13 @@ export const roomApi = {
       body: { baseScore },
     });
   },
+  /** 退出快速匹配队列 */
+  cancelQuickMatch(baseScore: number): Promise<{ status: 'cancelled' }> {
+    return request<{ status: 'cancelled' }>('/api/matchmaking/quick', {
+      method: 'DELETE',
+      body: { baseScore },
+    });
+  },
 };
 
 // ───────────────────────── 好友 ─────────────────────────
@@ -235,6 +242,10 @@ export const gameApi = {
   },
   reveal(roomId: string): Promise<PublicGameState> {
     return request<PublicGameState>(`/api/game/${roomId}/reveal`, { method: 'POST', body: {} });
+  },
+  /** 客户端超时兜底:本阶段截止已过却未自动推进时调用,返回(可能已推进的)公开状态 */
+  tick(roomId: string): Promise<PublicGameState> {
+    return request<PublicGameState>(`/api/game/${roomId}/tick`, { method: 'POST', body: {} });
   },
   /**
    * 获取浏览器订阅用的 Ably TokenRequest。

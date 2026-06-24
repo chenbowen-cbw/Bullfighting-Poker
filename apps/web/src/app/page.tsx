@@ -17,6 +17,9 @@ import { CreateRoomForm } from '@/components/lobby/CreateRoomForm';
 import { PveSetupForm } from '@/components/lobby/PveSetupForm';
 import { FriendsLauncher } from '@/components/friends/FriendsLauncher';
 
+/** 快速匹配默认底分档位 */
+const QUICK_MATCH_BASE = 10;
+
 /** 大厅:房间列表、创建房间、快速匹配、个人信息。 */
 export default function LobbyPage() {
   const router = useRouter();
@@ -30,6 +33,7 @@ export default function LobbyPage() {
   const [showPve, setShowPve] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [matching, setMatching] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   // 拉取房间列表
   const refresh = useCallback(async () => {
@@ -48,6 +52,31 @@ export default function LobbyPage() {
     if (authed) void refresh();
   }, [authed, refresh]);
 
+  // 匹配中:轮询直到凑齐(实时推送 match:found 为主、轮询为兜底)。
+  // 已在队列内重复 quickMatch 不会重复入队;被匹配后服务端用指针返回 matched。
+  useEffect(() => {
+    if (!searching) return;
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      try {
+        const result = await roomApi.quickMatch(QUICK_MATCH_BASE);
+        if (cancelled) return;
+        if (result.status === 'matched') {
+          setSearching(false);
+          router.push(`/room/${result.room.room.id}`);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setSearching(false);
+        pushToast('error', friendlyMessage(err));
+      }
+    }, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [searching, router, pushToast]);
+
   // 加入房间
   async function handleJoin(room: Room) {
     if (joiningId) return;
@@ -61,23 +90,33 @@ export default function LobbyPage() {
     }
   }
 
-  // 快速匹配(默认底分 10)
+  // 快速匹配:匹配成功直接进房;否则进入「匹配中」,由轮询 + 实时推送兜底自动进房。
   async function handleQuickMatch() {
-    if (matching) return;
+    if (matching || searching) return;
     setMatching(true);
     try {
-      const result = await roomApi.quickMatch(10);
+      const result = await roomApi.quickMatch(QUICK_MATCH_BASE);
       if (result.status === 'matched') {
-        pushToast('success', '匹配成功,出发!');
         router.push(`/room/${result.room.room.id}`);
       } else {
-        pushToast('info', '已加入匹配队列,凑齐就开局~ 先逛逛大厅吧');
-        await refresh();
+        setSearching(true);
+        pushToast('info', '已加入匹配队列,凑齐就自动进房~');
       }
     } catch (err) {
       pushToast('error', friendlyMessage(err));
     } finally {
       setMatching(false);
+    }
+  }
+
+  // 退出匹配队列
+  async function handleCancelMatch() {
+    setSearching(false);
+    try {
+      await roomApi.cancelQuickMatch(QUICK_MATCH_BASE);
+      pushToast('info', '已退出匹配队列');
+    } catch {
+      // 取消失败无伤大雅:队列项也会随 TTL 自动过期
     }
   }
 
@@ -102,9 +141,15 @@ export default function LobbyPage() {
           </div>
         </div>
         <div className="flex flex-wrap justify-center gap-2">
-          <CartoonButton variant="sky" loading={matching} onClick={handleQuickMatch}>
-            ⚡ 快速匹配
-          </CartoonButton>
+          {searching ? (
+            <CartoonButton variant="sky" onClick={handleCancelMatch}>
+              🔍 匹配中…点此取消
+            </CartoonButton>
+          ) : (
+            <CartoonButton variant="sky" loading={matching} onClick={handleQuickMatch}>
+              ⚡ 快速匹配
+            </CartoonButton>
+          )}
           <CartoonButton variant="grass" onClick={() => setShowCreate(true)}>
             ➕ 创建房间
           </CartoonButton>

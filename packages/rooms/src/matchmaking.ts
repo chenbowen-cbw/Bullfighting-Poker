@@ -61,6 +61,36 @@ export class InMemoryMatchmakingQueue implements MatchmakingQueue {
   }
 }
 
+/**
+ * 匹配结果指针:记录「某用户已被匹配进某房」。
+ *
+ * 解决两个问题:
+ * 1) 被匹配但非触发者的玩家,再次轮询时可直接 `takeMatch` 发现房间,而不会被重新入队;
+ * 2) 已匹配者的「重复入队」竞态(pop 后 isQueued=false → 又 enqueue)。
+ * 生产用 Redis(带 TTL)实现,测试用内存实现。
+ */
+export interface MatchedRegistry {
+  /** 标记这些用户已匹配进 roomId(通常带 TTL) */
+  markMatched(userIds: string[], roomId: string): Promise<void>;
+  /** 原子取出并清除某用户的匹配指针;无则返回 null */
+  takeMatch(userId: string): Promise<string | null>;
+}
+
+/** 内存匹配指针(测试用) */
+export class InMemoryMatchedRegistry implements MatchedRegistry {
+  private readonly map = new Map<string, string>();
+
+  async markMatched(userIds: string[], roomId: string): Promise<void> {
+    for (const id of userIds) this.map.set(id, roomId);
+  }
+
+  async takeMatch(userId: string): Promise<string | null> {
+    const roomId = this.map.get(userId) ?? null;
+    if (roomId !== null) this.map.delete(userId);
+    return roomId;
+  }
+}
+
 export interface MatchmakingConfig {
   /** 凑齐开局的人数,默认 4 */
   matchSize?: number;
@@ -74,17 +104,32 @@ export type QuickMatchResult = { status: 'matched'; room: RoomWithSeats } | { st
 export class MatchmakingService {
   private readonly queue: MatchmakingQueue;
   private readonly roomService: RoomService;
+  private readonly matched?: MatchedRegistry;
   private readonly matchSize: number;
   private readonly roomMaxPlayers: number;
 
-  constructor(queue: MatchmakingQueue, roomService: RoomService, config: MatchmakingConfig = {}) {
+  constructor(
+    queue: MatchmakingQueue,
+    roomService: RoomService,
+    config: MatchmakingConfig = {},
+    matched?: MatchedRegistry,
+  ) {
     this.queue = queue;
     this.roomService = roomService;
+    this.matched = matched;
     this.matchSize = config.matchSize ?? 4;
     this.roomMaxPlayers = config.roomMaxPlayers ?? config.matchSize ?? 4;
   }
 
   async quickMatch(userId: string, baseScore: number): Promise<QuickMatchResult> {
+    // 已被匹配进房(典型为非触发者的下一次轮询):直接发现房间,绝不重新入队。
+    if (this.matched) {
+      const matchedRoomId = await this.matched.takeMatch(userId);
+      if (matchedRoomId) {
+        return { status: 'matched', room: await this.roomService.getRoom(matchedRoomId) };
+      }
+    }
+
     if (!(await this.queue.isQueued(baseScore, userId))) {
       await this.queue.enqueue(baseScore, userId);
     }
@@ -104,7 +149,16 @@ export class MatchmakingService {
       for (const otherId of group.slice(1)) {
         await this.roomService.join(created.room.id, otherId, 0);
       }
-      return { status: 'matched', room: await this.roomService.getRoom(created.room.id) };
+      const room = await this.roomService.getRoom(created.room.id);
+
+      // 给「非本次触发者」留下匹配指针:他们下次轮询即可发现房间(实时推送在路由层做)。
+      const others = group.filter((id) => id !== userId);
+      if (this.matched && others.length > 0) {
+        await this.matched.markMatched(others, created.room.id);
+      }
+
+      // 并发下本人可能不在本组(他人触发的 pop 取走了前 N 个),此时本人仍在队列继续等。
+      return group.includes(userId) ? { status: 'matched', room } : { status: 'queued' };
     } catch (err) {
       // 建房/入座失败:把已取出的玩家重新入队,避免他们既不在队列也不在房间里被"卡住"
       for (const id of group) {

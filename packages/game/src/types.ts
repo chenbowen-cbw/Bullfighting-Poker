@@ -42,7 +42,8 @@ export type GameAction =
   | { type: 'ROB'; seatId: string; multiplier: number; now: number }
   | { type: 'BET'; seatId: string; multiplier: number; now: number }
   | { type: 'REVEAL'; seatId: string; now: number }
-  | { type: 'TIMEOUT'; now: number };
+  | { type: 'TIMEOUT'; now: number }
+  | { type: 'REMOVE_PLAYER'; seatId: string; now: number };
 
 /** 单个座位的结算增减 */
 export interface SettlementDelta {
