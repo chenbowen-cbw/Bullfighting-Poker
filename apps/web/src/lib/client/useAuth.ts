@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { authApi, clearToken, getToken } from './api';
 import { useAuthStore } from './store';
 
@@ -46,14 +46,20 @@ export function useAuthBootstrap(): void {
  */
 export function useRequireAuth(): { ready: boolean; authed: boolean } {
   const router = useRouter();
+  const pathname = usePathname();
   const token = useAuthStore((s) => s.token);
   const hydrated = useAuthStore((s) => s.hydrated);
 
   useEffect(() => {
     if (hydrated && !token) {
-      router.replace('/login');
+      // 带上当前路径,登录后回到原页面(如直接访问 /games/bullfighting)
+      const target =
+        pathname && pathname !== '/login'
+          ? `/login?redirect=${encodeURIComponent(pathname)}`
+          : '/login';
+      router.replace(target);
     }
-  }, [hydrated, token, router]);
+  }, [hydrated, token, router, pathname]);
 
   return { ready: hydrated, authed: Boolean(token) };
 }

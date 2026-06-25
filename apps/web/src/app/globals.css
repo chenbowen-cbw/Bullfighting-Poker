@@ -72,6 +72,154 @@
     @apply inline-flex items-center gap-1 rounded-full border-[3px] border-ink px-3 py-1
       text-sm font-extrabold shadow-cartoon-sm;
   }
+
+  /* ===================================================================== */
+  /* 暗黑像素风(门户首页专用)。作用域类 .theme-pixel 把暗色限制在门户子树, */
+  /* 不改 body 全局规则,卡通页面零影响。                                    */
+  /* ===================================================================== */
+  .theme-pixel {
+    @apply bg-pixel-void font-pixel-body text-pixel-text;
+    color-scheme: dark;
+    min-height: 100vh;
+    /* 像素网格 + 顶部青色光晕,覆盖父级奶油底 */
+    background-color: theme('colors.pixel-void');
+    background-image:
+      linear-gradient(rgba(39, 42, 77, 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(39, 42, 77, 0.35) 1px, transparent 1px),
+      radial-gradient(circle at 50% 28%, rgba(0, 240, 255, 0.08), transparent 60%);
+    background-size:
+      32px 32px,
+      32px 32px,
+      100% 100%;
+    background-attachment: fixed;
+  }
+  /* 像素聚焦环:覆盖卡通的虚线描边 */
+  .theme-pixel button:focus-visible,
+  .theme-pixel a:focus-visible,
+  .theme-pixel input:focus-visible {
+    outline: 2px solid theme('colors.neon-cyan');
+    outline-offset: 2px;
+  }
+
+  /* 像素按钮:霓虹边 + 硬投影;按下"右下平移压实"的机械感(区别于卡通的弹性陷入) */
+  .btn-pixel {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-pixel
+      border-2 border-neon-cyan bg-pixel-surface px-5 py-3 font-pixel text-xs uppercase
+      tracking-wide text-neon-cyan transition-all duration-100;
+    box-shadow: 2px 2px 0 0 #07070d;
+  }
+  .btn-pixel:hover:not(:disabled) {
+    @apply -translate-y-0.5 bg-neon-cyan text-pixel-void shadow-neon-cyan;
+  }
+  .btn-pixel:active:not(:disabled) {
+    @apply translate-x-0.5 translate-y-0.5 shadow-none;
+  }
+  .btn-pixel:disabled {
+    @apply cursor-not-allowed border-pixel-border text-pixel-faint opacity-60;
+    box-shadow: none;
+  }
+}
+
+@layer utilities {
+  /* CRT 扫描线覆盖层(挂在 ::after,pointer-events:none) */
+  .pixel-scanlines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0.28) 3px,
+      rgba(0, 0, 0, 0.28) 4px
+    );
+    mix-blend-mode: multiply;
+    animation: crt-scan 0.5s steps(2) infinite;
+  }
+
+  /* 霓虹文字辉光 */
+  .text-glow-cyan {
+    color: #e6e8ff;
+    text-shadow:
+      0 0 6px rgba(0, 240, 255, 0.9),
+      0 0 16px rgba(0, 240, 255, 0.55);
+  }
+  .text-glow-magenta {
+    color: #ffe6f4;
+    text-shadow:
+      0 0 6px rgba(255, 46, 151, 0.9),
+      0 0 16px rgba(255, 46, 151, 0.55);
+  }
+
+  /* cyberpunk 缺角矩形 */
+  .pixel-corner-cut {
+    clip-path: polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+  }
+
+  /* 标题 glitch 故障:双色 clip 抖动,作用于带 data-text 的单元素 */
+  .glitch {
+    position: relative;
+  }
+  .glitch::before,
+  .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .glitch::before {
+    color: #00f0ff;
+    animation: glitch-x 2.6s infinite steps(2);
+  }
+  .glitch::after {
+    color: #ff2e97;
+    animation: glitch-y 3.1s infinite steps(2);
+  }
+}
+
+@keyframes glitch-x {
+  0%,
+  92%,
+  100% {
+    transform: translate(0);
+    clip-path: inset(0 0 100% 0);
+  }
+  93% {
+    transform: translate(-2px, 0);
+    clip-path: inset(20% 0 40% 0);
+  }
+  96% {
+    transform: translate(2px, 0);
+    clip-path: inset(60% 0 10% 0);
+  }
+}
+@keyframes glitch-y {
+  0%,
+  90%,
+  100% {
+    transform: translate(0);
+    clip-path: inset(100% 0 0 0);
+  }
+  91% {
+    transform: translate(2px, 1px);
+    clip-path: inset(50% 0 30% 0);
+  }
+  94% {
+    transform: translate(-2px, -1px);
+    clip-path: inset(10% 0 70% 0);
+  }
+}
+
+/* 尊重用户的减少动效偏好:门户内所有持续动效降级为静态 */
+@media (prefers-reduced-motion: reduce) {
+  .theme-pixel *,
+  .theme-pixel *::before,
+  .theme-pixel *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 /* 隐藏数字输入的步进箭头,保持干净外观 */

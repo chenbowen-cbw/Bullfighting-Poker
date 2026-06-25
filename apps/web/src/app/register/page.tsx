@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authApi, friendlyMessage } from '@/lib/client/api';
+import { safeRedirect } from '@/lib/client/redirect';
 import { useAuthStore } from '@/lib/client/store';
 import { useToast } from '@/components/ui/Toast';
 import { AuthCard } from '@/components/auth/AuthCard';
@@ -41,7 +42,7 @@ export default function RegisterPage() {
       });
       signIn(token, user);
       pushToast('success', `注册成功,欢迎加入,${user.nickname}!`);
-      router.replace('/');
+      router.replace(safeRedirect());
     } catch (err) {
       pushToast('error', friendlyMessage(err));
     } finally {

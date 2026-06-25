@@ -136,7 +136,7 @@ export default function RoomPage() {
     try {
       await roomApi.leave(roomId);
       pushToast('info', '已离开房间');
-      router.push('/');
+      router.push('/games/bullfighting');
     } catch (err) {
       pushToast('error', friendlyMessage(err));
       setBusy(false);
