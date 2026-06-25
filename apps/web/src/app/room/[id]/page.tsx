@@ -48,7 +48,12 @@ export default function RoomPage() {
         setGame(state);
         setGameBackendOnline(true);
       } catch (err) {
-        if (err instanceof ApiError && err.isBackendMissing) {
+        if (err instanceof ApiError && err.isGameNotStarted) {
+          // 后端在线、本房尚未开局:用真实座位渲染等待态,并允许点"开始游戏"。
+          setGameBackendOnline(true);
+          setGame(deriveWaitingState(data));
+        } else if (err instanceof ApiError && err.isBackendMissing) {
+          // 接口确实缺失(未部署):降级为占位提示。
           setGameBackendOnline(false);
           setGame(deriveWaitingState(data));
         } else {

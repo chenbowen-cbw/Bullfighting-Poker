@@ -52,9 +52,18 @@ export class ApiError extends Error {
     this.code = code;
   }
 
-  /** 是否为"对局后端尚未上线"(404/405,接口缺失) */
+  /**
+   * 是否为"对局后端尚未上线"(接口缺失:404/405)。
+   * 排除业务态 GAME_NOT_STARTED——那是"后端在线、本房尚未开局"的正常 404,
+   * 不应被当成后端缺失而降级为占位提示。
+   */
   get isBackendMissing(): boolean {
-    return this.status === 404 || this.status === 405;
+    return (this.status === 404 || this.status === 405) && this.code !== 'GAME_NOT_STARTED';
+  }
+
+  /** 是否为"后端在线、但本房尚未开局"(可正常点击开始游戏) */
+  get isGameNotStarted(): boolean {
+    return this.code === 'GAME_NOT_STARTED';
   }
 }
 
