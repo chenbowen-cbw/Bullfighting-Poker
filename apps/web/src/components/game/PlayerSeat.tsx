@@ -20,6 +20,8 @@ interface PlayerSeatProps {
   isBanker: boolean;
   /** 是否为机器人(人机练习中标注 🤖,便于区分人机) */
   isBot?: boolean;
+  /** 隐藏座位内手牌(自己的手牌改由桌下"手牌托盘"展示,避免座位过高顶到动作区) */
+  hideHand?: boolean;
 }
 
 /**
@@ -33,6 +35,7 @@ export function PlayerSeat({
   isSelf,
   isBanker,
   isBot = false,
+  hideHand = false,
 }: PlayerSeatProps) {
   const avatar = isBot ? '🤖' : AVATARS[player.seatNo % AVATARS.length];
   const revealed = phase === 'reveal' || phase === 'settled';
@@ -102,8 +105,8 @@ export function PlayerSeat({
         )}
       </AnimatePresence>
 
-      {/* 手牌(本人可见 / 亮牌后全部可见) */}
-      {player.cards && player.cards.length > 0 && (
+      {/* 手牌(本人可见 / 亮牌后全部可见);自己的手牌改由桌下托盘展示,座位内不再渲染 */}
+      {!hideHand && player.cards && player.cards.length > 0 && (
         <div className="mt-1 flex justify-center -space-x-3">
           {player.cards.map((c, i) => (
             <PlayingCard
