@@ -8,9 +8,9 @@ import { safeRedirect } from '@/lib/client/redirect';
 import { useAuthStore } from '@/lib/client/store';
 import { useToast } from '@/components/ui/Toast';
 import { AuthCard } from '@/components/auth/AuthCard';
-import { CartoonButton } from '@/components/ui/CartoonButton';
+import { PixelButton } from '@/components/home/PixelButton';
 
-/** 注册页:卡通表单。 */
+/** 注册页:暗黑像素表单。 */
 export default function RegisterPage() {
   const router = useRouter();
   const signIn = useAuthStore((s) => s.signIn);
@@ -52,22 +52,23 @@ export default function RegisterPage() {
 
   return (
     <AuthCard
+      kicker="SIGN UP"
       title="注册"
       subtitle="创建账号,免费领初始筹码 🪙"
       footer={
         <>
           已经有账号了?{' '}
-          <Link href="/login" className="font-extrabold text-tangerine underline">
+          <Link href="/login" className="font-bold text-neon-cyan underline">
             去登录
           </Link>
         </>
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="px-2 text-sm font-extrabold text-ink/70">用户名(≥3 字)</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="px-1 font-pixel-body text-base text-pixel-dim">用户名(≥3 字)</span>
           <input
-            className="input-cartoon"
+            className="input-pixel"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="起个用户名"
@@ -75,20 +76,20 @@ export default function RegisterPage() {
             required
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="px-2 text-sm font-extrabold text-ink/70">昵称(可选)</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="px-1 font-pixel-body text-base text-pixel-dim">昵称(可选)</span>
           <input
-            className="input-cartoon"
+            className="input-pixel"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="牌桌上的名字"
             maxLength={64}
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="px-2 text-sm font-extrabold text-ink/70">密码(≥6 位)</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="px-1 font-pixel-body text-base text-pixel-dim">密码(≥6 位)</span>
           <input
-            className="input-cartoon"
+            className="input-pixel"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -97,9 +98,9 @@ export default function RegisterPage() {
             required
           />
         </label>
-        <CartoonButton type="submit" variant="tangerine" fullWidth loading={busy} className="mt-2">
-          🐂 加入牌桌
-        </CartoonButton>
+        <PixelButton type="submit" solid fullWidth loading={busy} className="mt-3">
+          ▶ 加入牌桌
+        </PixelButton>
       </form>
     </AuthCard>
   );

@@ -8,9 +8,9 @@ import { safeRedirect } from '@/lib/client/redirect';
 import { useAuthStore } from '@/lib/client/store';
 import { useToast } from '@/components/ui/Toast';
 import { AuthCard } from '@/components/auth/AuthCard';
-import { CartoonButton } from '@/components/ui/CartoonButton';
+import { PixelButton } from '@/components/home/PixelButton';
 
-/** 登录页:卡通表单。 */
+/** 登录页:暗黑像素表单。 */
 export default function LoginPage() {
   const router = useRouter();
   const signIn = useAuthStore((s) => s.signIn);
@@ -38,22 +38,23 @@ export default function LoginPage() {
 
   return (
     <AuthCard
+      kicker="LOGIN"
       title="登录"
-      subtitle="回到牌桌,继续斗牛 🐂"
+      subtitle="回到牌桌,继续开玩"
       footer={
         <>
           还没有账号?{' '}
-          <Link href="/register" className="font-extrabold text-tangerine underline">
+          <Link href="/register" className="font-bold text-neon-cyan underline">
             去注册
           </Link>
         </>
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="px-2 text-sm font-extrabold text-ink/70">用户名</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="px-1 font-pixel-body text-base text-pixel-dim">用户名</span>
           <input
-            className="input-cartoon"
+            className="input-pixel"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="你的用户名"
@@ -61,10 +62,10 @@ export default function LoginPage() {
             required
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="px-2 text-sm font-extrabold text-ink/70">密码</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="px-1 font-pixel-body text-base text-pixel-dim">密码</span>
           <input
-            className="input-cartoon"
+            className="input-pixel"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -73,9 +74,9 @@ export default function LoginPage() {
             required
           />
         </label>
-        <CartoonButton type="submit" variant="sunny" fullWidth loading={busy} className="mt-2">
-          🎉 登录
-        </CartoonButton>
+        <PixelButton type="submit" solid fullWidth loading={busy} className="mt-3">
+          ▶ 登录
+        </PixelButton>
       </form>
     </AuthCard>
   );

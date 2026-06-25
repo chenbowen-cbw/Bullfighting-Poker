@@ -118,6 +118,16 @@
     @apply cursor-not-allowed border-pixel-border text-pixel-faint opacity-60;
     box-shadow: none;
   }
+
+  /* 像素输入框(登录/注册等表单用) */
+  .input-pixel {
+    @apply w-full rounded-pixel border-2 border-pixel-border bg-pixel-bg px-4 py-3
+      font-pixel-body text-lg text-pixel-text placeholder:text-pixel-faint;
+  }
+  .input-pixel:focus {
+    @apply border-neon-cyan outline-none;
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
+  }
 }
 
 @layer utilities {
