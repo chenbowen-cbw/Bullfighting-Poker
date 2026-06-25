@@ -157,7 +157,7 @@ export default function PvePage() {
       {/* 顶栏 */}
       <header className="cartoon-card flex items-center justify-between gap-2 p-3">
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/games/bullfighting')}
           className="btn-cartoon bg-bull px-4 py-2 text-sm text-chalk"
         >
           ← 离开

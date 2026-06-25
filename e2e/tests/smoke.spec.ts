@@ -9,14 +9,17 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('冒烟:页面可渲染', () => {
-  test('首页可访问并渲染标题', async ({ page }) => {
+  test('门户首页可访问并渲染游戏墙', async ({ page }) => {
     const res = await page.goto('/');
     expect(res?.ok()).toBeTruthy();
 
-    // 首页包含产品标题与玩法说明文案
-    await expect(page).toHaveTitle(/斗牛扑克/);
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('斗牛扑克');
-    await expect(page.getByText('抢庄斗牛')).toBeVisible();
+    // 门户标题与 Hero 大标题
+    await expect(page).toHaveTitle(/像素游戏厅/);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('PIXEL ARCADE');
+    // 游戏卡片墙含已上线的「抢庄斗牛」
+    await expect(page.getByRole('heading', { name: '抢庄斗牛' })).toBeVisible();
+    // 公开可访问:未登录也能看到入口 CTA(不再立即跳登录)
+    await expect(page.getByRole('button', { name: '进入抢庄斗牛' })).toBeVisible();
   });
 
   test('健康检查端点返回 ok', async ({ request }) => {

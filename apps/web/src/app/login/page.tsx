@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authApi, friendlyMessage } from '@/lib/client/api';
+import { safeRedirect } from '@/lib/client/redirect';
 import { useAuthStore } from '@/lib/client/store';
 import { useToast } from '@/components/ui/Toast';
 import { AuthCard } from '@/components/auth/AuthCard';
@@ -27,7 +28,7 @@ export default function LoginPage() {
       const { token, user } = await authApi.login({ username, password });
       signIn(token, user);
       pushToast('success', `欢迎回来,${user.nickname}!`);
-      router.replace('/');
+      router.replace(safeRedirect());
     } catch (err) {
       pushToast('error', friendlyMessage(err));
     } finally {

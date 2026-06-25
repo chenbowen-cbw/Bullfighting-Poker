@@ -1,249 +1,38 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
-import type { Room } from '@/lib/client/types';
-import { friendlyMessage, roomApi } from '@/lib/client/api';
-import { useAuthStore } from '@/lib/client/store';
-import { useRequireAuth } from '@/lib/client/useAuth';
-import { useToast } from '@/components/ui/Toast';
-import { CartoonButton } from '@/components/ui/CartoonButton';
-import { CartoonModal } from '@/components/ui/CartoonModal';
-import { BullMascot } from '@/components/ui/BullMascot';
-import { TopBar } from '@/components/lobby/TopBar';
-import { RoomCard } from '@/components/lobby/RoomCard';
-import { CreateRoomForm } from '@/components/lobby/CreateRoomForm';
-import { PveSetupForm } from '@/components/lobby/PveSetupForm';
-import { FriendsLauncher } from '@/components/friends/FriendsLauncher';
+import { PixelBackground } from '@/components/home/PixelBackground';
+import { HomeTopBar } from '@/components/home/HomeTopBar';
+import { HomeHero } from '@/components/home/HomeHero';
+import { GameGrid } from '@/components/home/GameGrid';
 
-/** 快速匹配默认底分档位 */
-const QUICK_MATCH_BASE = 10;
-
-/** 大厅:房间列表、创建房间、快速匹配、个人信息。 */
-export default function LobbyPage() {
-  const router = useRouter();
-  const { ready, authed } = useRequireAuth();
-  const user = useAuthStore((s) => s.user);
-  const pushToast = useToast((s) => s.push);
-
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [showPve, setShowPve] = useState(false);
-  const [joiningId, setJoiningId] = useState<string | null>(null);
-  const [matching, setMatching] = useState(false);
-  const [searching, setSearching] = useState(false);
-
-  // 拉取房间列表
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { rooms } = await roomApi.list();
-      setRooms(rooms);
-    } catch (err) {
-      pushToast('error', friendlyMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [pushToast]);
-
-  useEffect(() => {
-    if (authed) void refresh();
-  }, [authed, refresh]);
-
-  // 匹配中:轮询直到凑齐(实时推送 match:found 为主、轮询为兜底)。
-  // 已在队列内重复 quickMatch 不会重复入队;被匹配后服务端用指针返回 matched。
-  useEffect(() => {
-    if (!searching) return;
-    let cancelled = false;
-    const timer = setInterval(async () => {
-      try {
-        const result = await roomApi.quickMatch(QUICK_MATCH_BASE);
-        if (cancelled) return;
-        if (result.status === 'matched') {
-          setSearching(false);
-          router.push(`/room/${result.room.room.id}`);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setSearching(false);
-        pushToast('error', friendlyMessage(err));
-      }
-    }, 2500);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [searching, router, pushToast]);
-
-  // 加入房间
-  async function handleJoin(room: Room) {
-    if (joiningId) return;
-    setJoiningId(room.id);
-    try {
-      await roomApi.join(room.id, room.minChips);
-      router.push(`/room/${room.id}`);
-    } catch (err) {
-      pushToast('error', friendlyMessage(err));
-      setJoiningId(null);
-    }
-  }
-
-  // 快速匹配:匹配成功直接进房;否则进入「匹配中」,由轮询 + 实时推送兜底自动进房。
-  async function handleQuickMatch() {
-    if (matching || searching) return;
-    setMatching(true);
-    try {
-      const result = await roomApi.quickMatch(QUICK_MATCH_BASE);
-      if (result.status === 'matched') {
-        router.push(`/room/${result.room.room.id}`);
-      } else {
-        setSearching(true);
-        pushToast('info', '已加入匹配队列,凑齐就自动进房~');
-      }
-    } catch (err) {
-      pushToast('error', friendlyMessage(err));
-    } finally {
-      setMatching(false);
-    }
-  }
-
-  // 退出匹配队列
-  async function handleCancelMatch() {
-    setSearching(false);
-    try {
-      await roomApi.cancelQuickMatch(QUICK_MATCH_BASE);
-      pushToast('info', '已退出匹配队列');
-    } catch {
-      // 取消失败无伤大雅:队列项也会随 TTL 自动过期
-    }
-  }
-
-  if (!ready) {
-    return <CenterLoading text="加载中…" />;
-  }
-  if (!authed) {
-    return <CenterLoading text="正在前往登录…" />;
-  }
-
+/**
+ * 多游戏门户首页(暗黑像素风 + 动态效果)。
+ * 公开可访问:未登录可浏览全部游戏,点 live 游戏时才引导登录(带 redirect 回跳)。
+ * 全部样式收在 .theme-pixel 作用域内,不影响卡通风的游戏页面。
+ */
+export default function HomePage() {
   return (
-    <main className="mx-auto max-w-5xl p-4">
-      <TopBar user={user} />
+    <main className="theme-pixel pixel-scanlines relative min-h-screen overflow-hidden">
+      <PixelBackground />
 
-      {/* 动作横幅 */}
-      <section className="cartoon-card mb-5 flex flex-col items-center gap-3 bg-felt/10 p-5 text-center sm:flex-row sm:justify-between sm:text-left">
-        <div className="flex items-center gap-3">
-          <BullMascot size={1.1} float />
-          <div>
-            <h1 className="text-2xl font-extrabold text-ink">来斗一把!</h1>
-            <p className="font-semibold text-ink/60">快速匹配,或自己开一桌</p>
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-16">
+        <HomeTopBar />
+        <HomeHero />
+
+        <section id="games" className="scroll-mt-8">
+          <div className="mb-5 flex items-end justify-between gap-3 border-b border-pixel-grid pb-3">
+            <h2 className="font-pixel text-sm uppercase tracking-wide text-pixel-text">
+              ▸ 游戏大厅
+            </h2>
+            <span className="font-pixel-body text-base text-pixel-dim">SELECT YOUR GAME</span>
           </div>
-        </div>
-        <div className="flex flex-wrap justify-center gap-2">
-          {searching ? (
-            <CartoonButton variant="sky" onClick={handleCancelMatch}>
-              🔍 匹配中…点此取消
-            </CartoonButton>
-          ) : (
-            <CartoonButton variant="sky" loading={matching} onClick={handleQuickMatch}>
-              ⚡ 快速匹配
-            </CartoonButton>
-          )}
-          <CartoonButton variant="grass" onClick={() => setShowCreate(true)}>
-            ➕ 创建房间
-          </CartoonButton>
-          <CartoonButton variant="grape" onClick={() => setShowPve(true)}>
-            🤖 人机练习
-          </CartoonButton>
-          <FriendsLauncher />
-        </div>
-      </section>
+          <GameGrid />
+        </section>
 
-      {/* 房间列表 */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xl font-extrabold text-ink">🏠 开放中的房间</h2>
-          <button
-            onClick={() => void refresh()}
-            className="btn-cartoon bg-chalk px-4 py-2 text-sm"
-            disabled={loading}
-          >
-            🔄 刷新
-          </button>
-        </div>
-
-        {loading ? (
-          <CenterLoading text="正在找房间…" inline />
-        ) : rooms.length === 0 ? (
-          <EmptyRooms onCreate={() => setShowCreate(true)} />
-        ) : (
-          <motion.div layout className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <AnimatePresence>
-              {rooms.map((room) => (
-                <RoomCard
-                  key={room.id}
-                  room={room}
-                  busy={joiningId === room.id}
-                  onJoin={handleJoin}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </section>
-
-      {/* 创建房间弹窗 */}
-      <CartoonModal open={showCreate} title="创建房间" onClose={() => setShowCreate(false)}>
-        <CreateRoomForm
-          onCreated={(created) => {
-            setShowCreate(false);
-            router.push(`/room/${created.room.id}`);
-          }}
-        />
-      </CartoonModal>
-
-      {/* 人机练习弹窗 */}
-      <CartoonModal open={showPve} title="人机练习" onClose={() => setShowPve(false)}>
-        <PveSetupForm
-          onStarted={(roomId) => {
-            setShowPve(false);
-            router.push(`/pve/${roomId}`);
-          }}
-        />
-      </CartoonModal>
-    </main>
-  );
-}
-
-/** 居中加载提示 */
-function CenterLoading({ text, inline }: { text: string; inline?: boolean }) {
-  return (
-    <div
-      className={
-        inline
-          ? 'flex items-center justify-center py-16'
-          : 'flex min-h-screen items-center justify-center'
-      }
-    >
-      <div className="flex flex-col items-center gap-2">
-        <BullMascot size={1} float />
-        <span className="text-lg font-extrabold text-ink/70">{text}</span>
+        <footer className="mt-16 border-t border-pixel-grid pt-6 text-center font-pixel-body text-base text-pixel-faint">
+          PIXEL POKER ARCADE · 像素游戏厅 — 更多游戏陆续上线
+        </footer>
       </div>
-    </div>
-  );
-}
-
-/** 空房间占位 */
-function EmptyRooms({ onCreate }: { onCreate: () => void }) {
-  return (
-    <div className="cartoon-card flex flex-col items-center gap-3 p-10 text-center">
-      <BullMascot size={1.4} float />
-      <p className="text-lg font-extrabold text-ink">还没有开放的房间</p>
-      <p className="font-semibold text-ink/60">当第一个开桌的人吧!</p>
-      <CartoonButton variant="grass" onClick={onCreate}>
-        ➕ 创建房间
-      </CartoonButton>
-    </div>
+    </main>
   );
 }
